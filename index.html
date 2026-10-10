@@ -510,6 +510,11 @@ body.membership-print-mode #membershipPrintHost{
             </div>
             
             <div class="flex items-center gap-2 md:gap-3">
+                <div id="ahaBugNotifyRoot" style="position:relative">
+                  <button id="ahaBugNotifyBtn" type="button" aria-expanded="false" aria-controls="ahaBugNotifyPanel" title="সফটওয়্যারের ত্রুটি নোটিফিকেশন">
+                    <i class="fa-solid fa-bell"></i><span class="aha-notify-label">নোটিফিকেশন</span><span id="ahaBugNotifyCount">0</span>
+                  </button>
+                </div>
                 <button onclick="toggleLanguage()" class="bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 border border-teal-500/30 px-2 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1" title="Change Language">
                     <i class="fa-solid fa-language text-sm"></i>
                     <span id="headerLangText">EN</span>
@@ -1808,8 +1813,8 @@ body.membership-print-mode #membershipPrintHost{
                         <input type="number" id="payPackageAmount" min="0" step="0.01" class="w-full p-2.5 dark-input rounded-md text-xs font-bold text-indigo-600">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">ক্লায়েন্ট কত টাকা দিয়েছেন (৳)</label>
-                        <input type="number" id="payPaidAmount" min="0" step="0.01" class="w-full p-2.5 dark-input rounded-md text-xs font-bold text-emerald-600" placeholder="0">
+                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">এইবার কত টাকা পেয়েছেন (৳)</label>
+                        <input type="number" id="payPaidAmount" min="0" step="0.01" class="w-full p-2.5 dark-input rounded-md text-xs font-bold text-emerald-600" placeholder="এইবার পাওয়া টাকার পরিমাণ">
                     </div>
                 </div>
                 <div>
@@ -4924,6 +4929,42 @@ body.membership-print-mode #membershipPrintHost{
             return 'speedybill_v4_clients';
         }
 
+        function saveClientsSafely(clients, failureMessage = 'ডাটা সংরক্ষণ করা যায়নি। ব্রাউজারের স্টোরেজ খালি করে বা ব্যাকআপ নিয়ে আবার চেষ্টা করুন।') {
+            try {
+                localStorage.setItem(getClientStorageKey(), JSON.stringify(clients));
+                return true;
+            } catch (err) {
+                console.error('Client data save failed:', err);
+                alert(failureMessage + (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED')
+                    ? '\nব্রাউজারের স্টোরেজ পূর্ণ। ছবি কমিয়ে বা পুরোনো ব্যাকআপ রেখে আবার চেষ্টা করুন।' : ''));
+                return false;
+            }
+        }
+
+        // Returns individual payment transactions. Older records are represented as one legacy transaction.
+        function getPaymentTransactions(record) {
+            if (!record || typeof record !== 'object') return [];
+            if (Array.isArray(record.transactions) && record.transactions.length) {
+                return record.transactions.map((t, i) => ({
+                    id: String(t.id || `${record.month || ''}-${i}`),
+                    amount: Math.max(0, Number(t.amount || 0)),
+                    date: String(t.date || ''),
+                    method: String(t.method || record.method || 'Cash'),
+                    txnId: String(t.txnId || ''),
+                    walletNumber: String(t.walletNumber || t.paymentWalletNumber || '')
+                }));
+            }
+            const amount = Math.max(0, Number(record.paidAmount || 0));
+            return amount > 0 ? [{
+                id: `legacy-${record.month || ''}-${record.date || ''}-${amount}`,
+                amount,
+                date: String(record.date || ''),
+                method: String(record.method || 'Cash'),
+                txnId: String(record.txnId || ''),
+                walletNumber: String(record.walletNumber || record.paymentWalletNumber || '')
+            }] : [];
+        }
+
         function normalizeClientRecord(client) {
             const c = (client && typeof client === 'object') ? client : {};
             return {
@@ -4948,6 +4989,15 @@ body.membership-print-mode #membershipPrintHost{
                     walletNumber: String(h.walletNumber || h.paymentWalletNumber || ''),
                     paymentWalletNumber: String(h.paymentWalletNumber || h.walletNumber || ''),
                     date: String(h.date || ''),
+                    transactions: Array.isArray(h.transactions) ? h.transactions.map(t => ({
+                        id: String(t.id || `${h.month || ''}-${t.date || ''}-${t.amount || 0}`),
+                        amount: Math.max(0, Number(t.amount || 0)),
+                        date: String(t.date || ''),
+                        method: String(t.method || h.method || c.payMethod || 'Cash'),
+                        txnId: String(t.txnId || ''),
+                        walletNumber: String(t.walletNumber || t.paymentWalletNumber || ''),
+                        paymentWalletNumber: String(t.paymentWalletNumber || t.walletNumber || '')
+                    })) : [],
                     status: h.status === 'Paid' ? 'Paid' : (Number(h.paidAmount || 0) > 0 ? 'Partial' : 'Unpaid')
                 })) : [],
                 paymentHistoryDeletedMonths: Array.isArray(c.paymentHistoryDeletedMonths)
@@ -5116,7 +5166,7 @@ body.membership-print-mode #membershipPrintHost{
                 autoStatusOverride: "Auto",
                 createdAt: getLocalDateISO()
             });
-            localStorage.setItem(getClientStorageKey(), JSON.stringify(clients));
+            if (!saveClientsSafely(clients, 'ক্লায়েন্ট সংরক্ষণ করা যায়নি। অনেক বড় ছবি থাকলে ছবি কমিয়ে আবার চেষ্টা করুন।')) return;
             document.getElementById('addClientForm').reset();
             const preview = document.getElementById('clientPhotoPreview');
             if (preview) preview.innerHTML = '<i class="fa-solid fa-camera text-xl"></i>';
@@ -5192,7 +5242,7 @@ body.membership-print-mode #membershipPrintHost{
                 clients[index].bill = Number(document.getElementById('editFullClientBill').value);
                 clients[index].startDate = document.getElementById('editFullClientStartDate').value;
                 clients[index].endDate = document.getElementById('editFullClientEndDate').value;
-                localStorage.setItem(getClientStorageKey(), JSON.stringify(clients));
+                if (!saveClientsSafely(clients, 'ক্লায়েন্টের পরিবর্তন সংরক্ষণ করা যায়নি। ছবি কমিয়ে বা ব্যাকআপ নিয়ে আবার চেষ্টা করুন।')) return;
                 toggleModal('editClientModal');
                 scheduleRenderUI();
             }
@@ -5600,7 +5650,21 @@ body.membership-print-mode #membershipPrintHost{
                 };
                 const idx = history.findIndex(h => String(h.month || '') === String(client.billingMonth));
                 if (idx >= 0) {
-                    if (client.status === 'Paid' || !history[idx].packageAmount) history[idx] = {...history[idx], ...currentRecord};
+                    const existing = history[idx];
+                    // Once a month has a transaction ledger, preserve its aggregate and ledger.
+                    if (!Array.isArray(existing.transactions) || !existing.transactions.length) {
+                        if (!existing.packageAmount) history[idx] = {...existing, ...currentRecord};
+                        else history[idx] = {
+                            ...existing,
+                            package: existing.package || currentRecord.package,
+                            packageAmount: Number(existing.packageAmount || currentRecord.packageAmount || 0),
+                            paidAmount: Math.max(Number(existing.paidAmount || 0), Number(currentRecord.paidAmount || 0)),
+                            method: existing.method || currentRecord.method,
+                            txnId: existing.txnId || currentRecord.txnId,
+                            walletNumber: existing.walletNumber || currentRecord.walletNumber,
+                            date: existing.date || currentRecord.date
+                        };
+                    }
                 } else history.push(currentRecord);
             }
             return history.slice().sort((a,b) => String(b.month || '').localeCompare(String(a.month || '')));
@@ -5642,13 +5706,13 @@ body.membership-print-mode #membershipPrintHost{
                     }
                 }
                 document.getElementById('payPackageAmount').value = record.packageAmount || 0;
-                document.getElementById('payPaidAmount').value = record.paidAmount || 0;
+                document.getElementById('payPaidAmount').value = Math.max(0, Number(record.packageAmount || 0) - Number(record.paidAmount || 0));
                 document.getElementById('payMethod').value = record.method || 'Cash';
-                document.getElementById('payTxnId').value = record.txnId || '';
+                document.getElementById('payTxnId').value = '';
                 const walletNumberInput = document.getElementById('payWalletNumber');
-                if (walletNumberInput) walletNumberInput.value = record.walletNumber || record.paymentWalletNumber || '';
+                if (walletNumberInput) walletNumberInput.value = '';
                 const savedPaymentDate = document.getElementById('payPaymentDate');
-                if (savedPaymentDate) savedPaymentDate.value = record.date || '';
+                if (savedPaymentDate) savedPaymentDate.value = getLocalDateISO();
                 document.getElementById('payStatus').value =
                     record.status === 'Paid' ? 'Paid' : (Number(record.paidAmount || 0) > 0 ? 'Partial' : 'Unpaid');
             } else {
@@ -5659,9 +5723,9 @@ body.membership-print-mode #membershipPrintHost{
                 }
                 syncPaymentPackagePrice();
                 const isCurrent = String(client.billingMonth || '') === String(month);
-                document.getElementById('payPaidAmount').value = isCurrent
-                    ? Number(client.paidAmount || (client.status === 'Paid' ? client.bill : 0) || 0)
-                    : 0;
+                const alreadyPaid = isCurrent ? Number(client.paidAmount || (client.status === 'Paid' ? client.bill : 0) || 0) : 0;
+                const selectedBill = Number(document.getElementById('payPackageAmount').value || client.bill || 0);
+                document.getElementById('payPaidAmount').value = Math.max(0, selectedBill - alreadyPaid);
                 document.getElementById('payMethod').value = isCurrent ? (client.payMethod || 'Cash') : 'Cash';
                 document.getElementById('payTxnId').value = isCurrent ? (client.txnId || '') : '';
                 const walletNumberInput = document.getElementById('payWalletNumber');
@@ -5733,8 +5797,9 @@ body.membership-print-mode #membershipPrintHost{
                         <td class="p-2.5">${escapeHTML(h.method || 'Cash')}
                             ${h.txnId ? `<div class="text-[9px] text-slate-400">TxnID: ${escapeHTML(h.txnId)}</div>` : ''}
                             ${h.walletNumber || h.paymentWalletNumber ? `<div class="text-[9px] text-slate-400">No: ${escapeHTML(h.walletNumber || h.paymentWalletNumber)}</div>` : ''}
+                            ${getPaymentTransactions(h).length > 1 ? `<div class="mt-1 space-y-1">${getPaymentTransactions(h).map((t, ti) => `<div class="rounded bg-slate-100 dark:bg-slate-800 p-1 text-[9px]">${ti + 1}. ${escapeHTML(t.date || 'তারিখ নেই')} · ৳${Number(t.amount || 0).toLocaleString('en-US')} · ${escapeHTML(t.method || 'Cash')}${t.txnId ? ` · ${escapeHTML(t.txnId)}` : ''}</div>`).join('')}</div>` : ''}
                         </td>
-                        <td class="p-2.5">${escapeHTML(h.date || '—')}</td>
+                        <td class="p-2.5">${escapeHTML(h.date || '—')}${Array.isArray(h.transactions) && h.transactions.length > 1 ? `<div class="text-[9px] text-slate-500">${h.transactions.length}টি লেনদেন</div>` : ''}</td>
                         <td class="p-2.5 text-center">${badge}</td>
                         ${actionCell}
                     </tr>`;
@@ -5987,62 +6052,88 @@ html,body{margin:0;padding:0;background:#eef2f7;color:#172033;font-family:"Noto 
             const month = document.getElementById('payBillingMonth').value;
             const packageName = document.getElementById('payPackage').value.trim();
             const packageAmount = Math.max(0, Number(document.getElementById('payPackageAmount').value) || 0);
-            const paidAmount = Math.max(0, Number(document.getElementById('payPaidAmount').value) || 0);
+            const paymentAmount = Math.max(0, Number(document.getElementById('payPaidAmount').value) || 0);
             const method = document.getElementById('payMethod').value;
             const txnId = document.getElementById('payTxnId').value.trim();
             const walletNumber = (document.getElementById('payWalletNumber')?.value || '').trim();
             const paymentDate = document.getElementById('payPaymentDate')?.value || '';
-            const requestedStatus = document.getElementById('payStatus')?.value || 'Unpaid';
             if (!month) { alert('পেমেন্টের মাস নির্বাচন করুন।'); return; }
-            if (paidAmount > 0 && !paymentDate) { alert('পেমেন্ট করার তারিখ নির্বাচন করুন।'); return; }
+            if (paymentAmount > 0 && !paymentDate) { alert('পেমেন্ট করার তারিখ নির্বাচন করুন।'); return; }
             if (!packageName) { alert('প্যাকেজ নির্বাচন করুন।'); return; }
-            if (paidAmount > packageAmount) { alert('পরিশোধের টাকা প্যাকেজ মূল্যের চেয়ে বেশি হতে পারবে না।'); return; }
+            if (packageAmount <= 0) { alert('প্যাকেজ মূল্য শূন্যের বেশি হতে হবে।'); return; }
+            if (paymentAmount <= 0) { alert('এইবার পাওয়া টাকার পরিমাণ লিখুন।'); return; }
 
-            let clients = getSubscribers();
+            const clients = getSubscribers();
             const c = clients.find(item => Number(item.id) === Number(id));
-            if(c) {
-                const history = Array.isArray(c.paymentHistory) ? c.paymentHistory : getClientPaymentHistory(c);
-                const record = {
-                    month,
-                    package: packageName,
-                    packageAmount,
-                    paidAmount,
-                    method,
-                    txnId,
-                    walletNumber: (method === 'bKash' || method === 'Nagad') ? walletNumber : '',
-                    paymentWalletNumber: (method === 'bKash' || method === 'Nagad') ? walletNumber : '',
-                    date: paidAmount > 0 ? paymentDate : '',
-                    status: paidAmount >= packageAmount && packageAmount > 0
-                        ? 'Paid'
-                        : paidAmount > 0
-                            ? 'Partial'
-                            : (requestedStatus === 'Paid' ? 'Paid' : 'Unpaid')
-                };
-                const existingIndex = history.findIndex(h => String(h.month) === String(month));
-                if (existingIndex >= 0) history[existingIndex] = record;
-                else history.push(record);
-                history.sort((a,b) => String(b.month || '').localeCompare(String(a.month || '')));
-                c.paymentHistory = history;
-                c.paymentHistoryDeletedMonths = Array.isArray(c.paymentHistoryDeletedMonths)
-                    ? c.paymentHistoryDeletedMonths.filter(m => String(m) !== String(month))
-                    : [];
-
-                // Keep the main client payment fields synchronized with the selected/current month.
-                if (String(c.billingMonth || '') === String(month)) {
-                    c.package = packageName;
-                    c.bill = packageAmount;
-                    c.payMethod = method;
-                    c.txnId = txnId;
-                    c.walletNumber = record.walletNumber || '';
-                    c.paymentWalletNumber = record.walletNumber || '';
-                    c.status = record.status === 'Paid' ? 'Paid' : 'Unpaid';
-                    c.paidAmount = Number(record.paidAmount || 0);
-                    c.paymentDate = record.date;
-                }
-                localStorage.setItem(getClientStorageKey(), JSON.stringify(clients));
-                toggleModal('paymentModal');
-                scheduleRenderUI();
+            if (!c) { alert('ক্লায়েন্টের তথ্য পাওয়া যায়নি।'); return; }
+            const history = getClientPaymentHistory(c);
+            const existingIndex = history.findIndex(h => String(h.month) === String(month));
+            const existing = existingIndex >= 0 ? history[existingIndex] : null;
+            const alreadyPaid = Math.max(0, Number(existing?.paidAmount || 0));
+            const remainingDue = Math.max(0, packageAmount - alreadyPaid);
+            if (paymentAmount > remainingDue + 0.000001) {
+                alert(`এই মাসে বকেয়া আছে ৳${remainingDue.toLocaleString('en-US')}। এর বেশি পেমেন্ট গ্রহণ করা যাবে না।`);
+                return;
             }
+
+            // Migrate the previous single payment into a ledger before appending the new transaction.
+            let transactions = existing ? getPaymentTransactions(existing) : [];
+            const ledgerTotal = transactions.reduce((sum, t) => sum + Math.max(0, Number(t.amount || 0)), 0);
+            if (existing && alreadyPaid > ledgerTotal + 0.000001) {
+                transactions.push({
+                    id: `legacy-migration-${month}-${Date.now()}`,
+                    amount: alreadyPaid - ledgerTotal,
+                    date: existing.date || '',
+                    method: existing.method || 'Cash',
+                    txnId: existing.txnId || '',
+                    walletNumber: existing.walletNumber || existing.paymentWalletNumber || ''
+                });
+            }
+            const newTransaction = {
+                id: `TX-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                amount: paymentAmount,
+                date: paymentDate,
+                method,
+                txnId,
+                walletNumber: (method === 'bKash' || method === 'Nagad') ? walletNumber : '',
+                paymentWalletNumber: (method === 'bKash' || method === 'Nagad') ? walletNumber : ''
+            };
+            transactions.push(newTransaction);
+            const cumulativePaid = Math.min(packageAmount, alreadyPaid + paymentAmount);
+            const record = {
+                month,
+                package: packageName,
+                packageAmount,
+                paidAmount: cumulativePaid,
+                method,
+                txnId,
+                walletNumber: newTransaction.walletNumber,
+                paymentWalletNumber: newTransaction.walletNumber,
+                date: paymentDate,
+                transactions,
+                status: cumulativePaid >= packageAmount ? 'Paid' : cumulativePaid > 0 ? 'Partial' : 'Unpaid'
+            };
+            if (existingIndex >= 0) history[existingIndex] = record;
+            else history.push(record);
+            history.sort((a,b) => String(b.month || '').localeCompare(String(a.month || '')));
+            c.paymentHistory = history;
+            c.paymentHistoryDeletedMonths = Array.isArray(c.paymentHistoryDeletedMonths)
+                ? c.paymentHistoryDeletedMonths.filter(m => String(m) !== String(month)) : [];
+
+            if (String(c.billingMonth || '') === String(month)) {
+                c.package = packageName;
+                c.bill = packageAmount;
+                c.payMethod = method;
+                c.txnId = txnId;
+                c.walletNumber = record.walletNumber || '';
+                c.paymentWalletNumber = record.walletNumber || '';
+                c.status = record.status;
+                c.paidAmount = cumulativePaid;
+                c.paymentDate = paymentDate;
+            }
+            if (!saveClientsSafely(clients, 'পেমেন্ট সংরক্ষণ করা যায়নি। আপনার ডাটা অপরিবর্তিত রাখা হয়েছে।')) return;
+            toggleModal('paymentModal');
+            scheduleRenderUI();
         }
 
         function downloadBlobFile(filename, content, mimeType='text/html;charset=utf-8') {
@@ -7132,7 +7223,8 @@ body{display:block!important;min-height:0!important;overflow:visible!important}.
 
         function renderDashboard() {
             const clients = getSubscribers();
-            const selectedMonth = document.getElementById('dashboardMonthSelect').value;
+            const monthSelector = document.getElementById('dashboardMonthSelect');
+            const selectedMonth = monthSelector ? monthSelector.value : getBillingCycleDates().currentMonthStr;
             
             // Client count/status cards remain scoped to the selected billing month.
             const monthClients = clients.filter(c => !c.billingMonth || String(c.billingMonth) === String(selectedMonth));
@@ -7180,18 +7272,22 @@ body{display:block!important;min-height:0!important;overflow:visible!important}.
                 totalRevenue += monthPaid;
                 pendingBill += monthDue;
                 paymentRows.forEach(h => {
-                    const amount = Math.max(0, Number(h.paidAmount || 0));
-                    if (h.method === 'bKash') bkashTotal += amount;
-                    else if (h.method === 'Nagad') nagadTotal += amount;
-                    else cashTotal += amount;
+                    getPaymentTransactions(h).forEach(t => {
+                        const amount = Math.max(0, Number(t.amount || 0));
+                        if (t.method === 'bKash') bkashTotal += amount;
+                        else if (t.method === 'Nagad') nagadTotal += amount;
+                        else cashTotal += amount;
+                    });
                 });
             });
 
             // Today's cash-in is date-based across every client, independent of the selected billing month.
             clients.forEach(c => {
                 getClientPaymentHistory(c).forEach(h => {
-                    const amount = Math.max(0, Number(h.paidAmount || 0));
-                    if (amount > 0 && String(h.date || '').slice(0, 10) === todayStr) todayCollection += amount;
+                    getPaymentTransactions(h).forEach(t => {
+                        const amount = Math.max(0, Number(t.amount || 0));
+                        if (amount > 0 && String(t.date || '').slice(0, 10) === todayStr) todayCollection += amount;
+                    });
                 });
             });
 
@@ -7986,5 +8082,142 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
   </div>
 </div>
+
+<!-- AHA Runtime Error Notifications -->
+<style>
+  #ahaBugNotifyBtn{position:relative;display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(20,184,166,.35);background:rgba(20,184,166,.10);color:#0f766e;padding:8px 11px;border-radius:10px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
+  .dark #ahaBugNotifyBtn{color:#5eead4}
+  #ahaBugNotifyCount{display:none;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#e11d48;color:white;font-size:10px;line-height:18px;text-align:center}
+  #ahaBugNotifyPanel{position:fixed;top:76px;right:12px;width:min(390px,calc(100vw - 24px));max-height:min(72vh,620px);z-index:99999;background:#fff;color:#0f172a;border:1px solid #cbd5e1;border-radius:16px;box-shadow:0 18px 60px rgba(0,0,0,.28);display:none;overflow:hidden}
+  .dark #ahaBugNotifyPanel{background:#0b111a;color:#e2e8f0;border-color:#334155}
+  #ahaBugNotifyPanel.aha-open{display:flex;flex-direction:column}
+  #ahaBugNotifyPanel .aha-notify-head{padding:13px 15px;background:#f1f5f9;border-bottom:1px solid #cbd5e1;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .dark #ahaBugNotifyPanel .aha-notify-head{background:#111827;border-color:#334155}
+  #ahaBugNotifyList{overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+  .aha-bug-item{border:1px solid #e2e8f0;border-left:4px solid #e11d48;border-radius:10px;padding:9px 10px;background:#fff7f7;font-size:12px;overflow-wrap:anywhere}
+  .dark .aha-bug-item{background:#24151a;border-color:#4c2630}
+  .aha-bug-item.aha-warn{border-left-color:#d97706;background:#fffbeb}
+  .dark .aha-bug-item.aha-warn{background:#282014;border-color:#58411f}
+  .aha-bug-meta{font-size:10px;opacity:.72;margin-top:5px}
+  #ahaBugNotifyPanel button.aha-small{border:1px solid #cbd5e1;border-radius:8px;padding:5px 8px;font-size:11px;font-weight:700}
+  .dark #ahaBugNotifyPanel button.aha-small{border-color:#475569}
+  @media(max-width:480px){#ahaBugNotifyBtn .aha-notify-label{display:none}#ahaBugNotifyPanel{top:70px;right:8px;width:calc(100vw - 16px)}}
+</style>
+<section id="ahaBugNotifyPanel" role="dialog" aria-label="Software error notifications" aria-live="polite">
+  <div class="aha-notify-head">
+    <div><strong style="font-size:13px">সফটওয়্যার ত্রুটি</strong><div id="ahaBugNotifySummary" style="font-size:10px;opacity:.7;margin-top:3px">স্বয়ংক্রিয় পর্যবেক্ষণ চালু</div></div>
+    <div style="display:flex;gap:5px;align-items:center">
+      <button class="aha-small" type="button" id="ahaBugRunCheck">পরীক্ষা করুন</button>
+      <button class="aha-small" type="button" id="ahaBugClear">মুছুন</button>
+      <button class="aha-small" type="button" id="ahaBugClose" aria-label="বন্ধ করুন">✕</button>
+    </div>
+  </div>
+  <div id="ahaBugNotifyList">
+    <div id="ahaBugNotifyEmpty" style="padding:18px 10px;text-align:center;font-size:12px;opacity:.75">এখনও কোনো ত্রুটি ধরা পড়েনি। এটি সব ধরনের বাগ না থাকার নিশ্চয়তা নয়।</div>
+  </div>
+  <div style="padding:9px 12px;border-top:1px solid #cbd5e1;font-size:10px;opacity:.75">এই তালিকায় ব্রাউজারে ধরা পড়া JavaScript ত্রুটি ও প্রাথমিক পরীক্ষা দেখানো হয়। হিসাবের ভুল বা সব ধরনের বাগ স্বয়ংক্রিয়ভাবে শনাক্ত নাও হতে পারে।</div>
+</section>
+<script>
+(function(){
+  'use strict';
+  const MAX_ITEMS = 100;
+  const items = [];
+  const btn = document.getElementById('ahaBugNotifyBtn');
+  const panel = document.getElementById('ahaBugNotifyPanel');
+  const list = document.getElementById('ahaBugNotifyList');
+  const count = document.getElementById('ahaBugNotifyCount');
+  const summary = document.getElementById('ahaBugNotifySummary');
+  const emptyText = 'এখনও কোনো ত্রুটি ধরা পড়েনি। এটি সব ধরনের বাগ না থাকার নিশ্চয়তা নয়।';
+
+  function esc(v){
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function stamp(){
+    try { return new Date().toLocaleString('bn-BD'); } catch (_) { return new Date().toISOString(); }
+  }
+  function render(){
+    count.textContent = String(items.length);
+    count.style.display = items.length ? 'inline-block' : 'none';
+    summary.textContent = items.length ? items.length + 'টি ত্রুটি/সতর্কতা ধরা পড়েছে' : 'কোনো ত্রুটি এখনো ধরা পড়েনি';
+    list.innerHTML = '';
+    if (!items.length) {
+      const d = document.createElement('div');
+      d.style.cssText = 'padding:18px 10px;text-align:center;font-size:12px;opacity:.75';
+      d.textContent = emptyText;
+      list.appendChild(d);
+      return;
+    }
+    items.slice().reverse().forEach(it => {
+      const card = document.createElement('div');
+      card.className = 'aha-bug-item' + (it.level === 'warn' ? ' aha-warn' : '');
+      const title = document.createElement('strong');
+      title.textContent = it.level === 'warn' ? 'সতর্কতা: ' + it.message : 'ত্রুটি: ' + it.message;
+      card.appendChild(title);
+      if (it.detail) {
+        const detail = document.createElement('div');
+        detail.style.marginTop = '5px';
+        detail.textContent = it.detail;
+        card.appendChild(detail);
+      }
+      const meta = document.createElement('div');
+      meta.className = 'aha-bug-meta';
+      meta.textContent = it.time + (it.source ? ' • ' + it.source : '');
+      card.appendChild(meta);
+      list.appendChild(card);
+    });
+  }
+  function add(level, message, detail, source){
+    const cleanMessage = String(message || 'অজানা ত্রুটি').slice(0,1000);
+    const recent = items.length && items[items.length-1];
+    if (recent && recent.message === cleanMessage && recent.detail === String(detail || '').slice(0,1600)) return;
+    items.push({level, message:cleanMessage, detail:String(detail || '').slice(0,1600), source:String(source || ''), time:stamp()});
+    if (items.length > MAX_ITEMS) items.shift();
+    render();
+  }
+  window.addEventListener('error', function(e){
+    const msg = e && e.message ? e.message : 'স্ক্রিপ্ট/রিসোর্স লোডে ত্রুটি';
+    const where = e && e.filename ? e.filename.split('/').pop() + (e.lineno ? ':' + e.lineno : '') : '';
+    add('error', msg, e && e.error && e.error.stack ? e.error.stack : '', where);
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    const reason = e && e.reason;
+    const msg = reason && reason.message ? reason.message : String(reason || 'Promise ব্যর্থ হয়েছে');
+    add('error', 'Async/Promise ত্রুটি: ' + msg, reason && reason.stack ? reason.stack : '', 'unhandledrejection');
+  });
+  btn.addEventListener('click', function(){
+    const open = !panel.classList.contains('aha-open');
+    panel.classList.toggle('aha-open', open);
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  document.getElementById('ahaBugClose').addEventListener('click', function(){
+    panel.classList.remove('aha-open'); btn.setAttribute('aria-expanded','false');
+  });
+  document.getElementById('ahaBugClear').addEventListener('click', function(){
+    items.length = 0; render();
+  });
+  document.getElementById('ahaBugRunCheck').addEventListener('click', function(){
+    let failures = 0;
+    const requiredIds = ['currentPageTitle','dashboardMonthSelect','dashboardCollectionReportModal'];
+    requiredIds.forEach(id => {
+      if (!document.getElementById(id)) {
+        failures++;
+        add('warn', 'প্রয়োজনীয় UI অংশ পাওয়া যায়নি: #' + id, 'এই অংশটি অন্য পেজ/মোডে না থাকলে ফিচারটি কাজ নাও করতে পারে।', 'স্বয়ংক্রিয় পরীক্ষা');
+      }
+    });
+    try {
+      const key = '__aha_bug_notify_test__';
+      localStorage.setItem(key, 'ok');
+      localStorage.removeItem(key);
+    } catch (e) {
+      failures++;
+      add('error', 'ব্রাউজারের LocalStorage ব্যবহার করা যাচ্ছে না', e && e.message ? e.message : '', 'স্টোরেজ পরীক্ষা');
+    }
+    if (!failures) add('warn', 'প্রাথমিক পরীক্ষা সম্পন্ন', 'এই পরীক্ষায় নির্দিষ্ট UI অংশ ও LocalStorage যাচাই হয়েছে; এটি পূর্ণাঙ্গ বাগ পরীক্ষা নয়।', 'স্বয়ংক্রিয় পরীক্ষা');
+    panel.classList.add('aha-open'); btn.setAttribute('aria-expanded','true');
+  });
+  render();
+})();
+</script>
+
 </body>
 </html>
