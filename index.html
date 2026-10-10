@@ -1319,11 +1319,11 @@ body.membership-print-mode #membershipPrintHost{
                     </div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-teal-50/60 dark:bg-teal-950/20 p-3 rounded-lg border border-teal-100 dark:border-teal-900/50">
-                    <div class="sm:col-span-1">
+                    <div class="sm:col-span-3">
                         <label class="block text-xs font-semibold text-teal-700 dark:text-teal-300 mb-1">ক্লায়েন্ট ছবি</label>
-                        <div class="flex items-center gap-3">
+                        <div class="flex flex-col gap-3 min-w-0 w-full">
                             <div id="editClientPhotoPreview" class="client-photo-gallery-preview flex flex-wrap gap-1 items-center text-teal-500"><i class="fa-solid fa-camera text-xl"></i></div>
-                            <div class="min-w-0">
+                            <div class="w-full min-w-0">
                                 <input type="file" id="editClientPhoto" accept="image/*" multiple onchange="previewClientPhoto(this, 'editClientPhotoPreview')" class="w-full text-[10px] text-slate-600 dark:text-slate-300">
                                 <p class="text-[9px] text-slate-500 mt-1">একসাথে একাধিক ছবি দিন; নতুন ছবি আগের ছবির সাথে যুক্ত হবে (সর্বোচ্চ ১০টি)।</p>
                             </div>
@@ -1419,11 +1419,11 @@ body.membership-print-mode #membershipPrintHost{
                     </div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-teal-50/60 dark:bg-teal-950/20 p-3 rounded-lg border border-teal-100 dark:border-teal-900/50">
-                    <div class="sm:col-span-1">
+                    <div class="sm:col-span-3">
                         <label class="block text-xs font-semibold text-teal-700 dark:text-teal-300 mb-1.5">ক্লায়েন্ট ছবি</label>
-                        <div class="flex items-center gap-3">
+                        <div class="flex flex-col gap-3 min-w-0 w-full">
                             <div id="clientPhotoPreview" class="client-photo-gallery-preview flex flex-wrap gap-1 items-center text-teal-500"><i class="fa-solid fa-camera text-xl"></i></div>
-                            <div class="min-w-0">
+                            <div class="w-full min-w-0">
                                 <input type="file" id="clientPhoto" accept="image/*" multiple onchange="previewClientPhoto(this, 'clientPhotoPreview')" class="w-full text-[10px] text-slate-600 dark:text-slate-300">
                                 <p class="text-[9px] text-slate-500 mt-1">JPG/PNG/WebP • একাধিক ছবি • সর্বোচ্চ ১০টি</p>
                             </div>
@@ -5205,46 +5205,92 @@ body.membership-print-mode #membershipPrintHost{
         }
 
         async function saveClientEdits(e) {
-            if (typeof isStaffImpersonation === 'function' && isStaffImpersonation()) { alert('Admin Staff Account-এর তথ্য Read Only।'); return; }
-            e.preventDefault();
-            const id = Number(document.getElementById('editFullClientId').value);
-            const nid = validateClientIdentity(document.getElementById('editFullClientNid').value, document.getElementById('editFullClientDob').value);
-            if (nid === null) return;
-            let clients = getSubscribers();
-            const index = clients.findIndex(c => Number(c.id) === Number(id));
-            if(index !== -1) {
-                if (nid && clients.some((c,i) => i !== index && String(c.nid || '') === nid)) {
+            if (e && typeof e.preventDefault === 'function') e.preventDefault();
+            if (typeof isStaffImpersonation === 'function' && isStaffImpersonation()) {
+                alert('Admin Staff Account-এর তথ্য Read Only।');
+                return;
+            }
+            const byId = (id) => document.getElementById(id);
+            try {
+                const idField = byId('editFullClientId');
+                const id = Number(idField && idField.value);
+                if (!Number.isFinite(id) || !id) {
+                    alert('ক্লায়েন্টের ID পাওয়া যায়নি। তালিকা থেকে আবার Edit খুলুন।');
+                    return;
+                }
+                const nameField = byId('editFullClientName');
+                const phoneField = byId('editFullClientPhone');
+                if (!nameField || !nameField.value.trim() || !phoneField || !phoneField.value.trim()) {
+                    alert('ক্লায়েন্টের নাম ও ফোন নম্বর লিখুন।');
+                    return;
+                }
+                const nid = validateClientIdentity(byId('editFullClientNid')?.value, byId('editFullClientDob')?.value);
+                if (nid === null) return;
+                const clients = getSubscribers();
+                const index = clients.findIndex(c => Number(c.id) === id);
+                if (index < 0) {
+                    alert('এই ক্লায়েন্টের রেকর্ড পাওয়া যায়নি। তালিকা রিফ্রেশ করে আবার চেষ্টা করুন।');
+                    return;
+                }
+                if (nid && clients.some((c, i) => i !== index && String(c.nid || '').replace(/\D/g, '') === nid)) {
                     alert('এই NID No. ইতিমধ্যে অন্য একটি Client-এর সাথে ব্যবহার করা হয়েছে।');
                     return;
                 }
-                let newPhotos = getClientPhotos(clients[index]);
-                try {
-                    const selectedFiles = Array.from(document.getElementById('editClientPhoto')?.files || []);
-                    if (selectedFiles.length > 10 || newPhotos.length + selectedFiles.length > 10) {
-                        alert('একজন ক্লায়েন্টের জন্য সর্বোচ্চ ১০টি ছবি রাখা যাবে।'); return;
-                    }
-                    if (selectedFiles.length) newPhotos = newPhotos.concat((await Promise.all(selectedFiles.map(readClientImage))).filter(Boolean));
-                } catch (err) { alert(err.message || 'ছবি সংরক্ষণ করা যায়নি।'); return; }
-                clients[index].name = document.getElementById('editFullClientName').value;
-                clients[index].phone = document.getElementById('editFullClientPhone').value;
-                clients[index].email = document.getElementById('editFullClientEmail').value;
-                clients[index].photos = newPhotos;
-                clients[index].photo = newPhotos[0] || '';
-                clients[index].nid = nid;
-                clients[index].dob = document.getElementById('editFullClientDob').value;
-                clients[index].pppoeUser = document.getElementById('editFullPppoeUser').value;
-                clients[index].pppoePass = document.getElementById('editFullPppoePass').value;
-                clients[index].address = document.getElementById('editFullClientAddress').value;
-                clients[index].ip = document.getElementById('editFullClientIp').value;
-                clients[index].mac = document.getElementById('editFullClientMac').value;
-                clients[index].package = document.getElementById('editFullClientPkg').value;
-                clients[index].billingMonth = document.getElementById('editFullBillingMonth').value;
-                clients[index].bill = Number(document.getElementById('editFullClientBill').value);
-                clients[index].startDate = document.getElementById('editFullClientStartDate').value;
-                clients[index].endDate = document.getElementById('editFullClientEndDate').value;
-                if (!saveClientsSafely(clients, 'ক্লায়েন্টের পরিবর্তন সংরক্ষণ করা যায়নি। ছবি কমিয়ে বা ব্যাকআপ নিয়ে আবার চেষ্টা করুন।')) return;
+                const oldPhotos = getClientPhotos(clients[index]);
+                const photoInput = byId('editClientPhoto');
+                const selectedFiles = Array.from(photoInput?.files || []);
+                if (selectedFiles.length > 10 || oldPhotos.length + selectedFiles.length > 10) {
+                    alert(`আগে ${oldPhotos.length}টি ছবি সংরক্ষিত আছে। সর্বোচ্চ ১০টি ছবি রাখা যাবে; ${Math.max(0, 10-oldPhotos.length)}টি পর্যন্ত নতুন ছবি যোগ করুন।`);
+                    return;
+                }
+                let newPhotos = oldPhotos.slice();
+                if (selectedFiles.length) {
+                    const converted = await Promise.all(selectedFiles.map(readClientImage));
+                    newPhotos = newPhotos.concat(converted.filter(Boolean));
+                }
+                const updated = { ...clients[index] };
+                updated.name = nameField.value.trim();
+                updated.phone = phoneField.value.trim();
+                updated.email = byId('editFullClientEmail')?.value.trim() || '';
+                updated.photos = newPhotos;
+                updated.photo = newPhotos[0] || '';
+                updated.nid = nid;
+                updated.dob = byId('editFullClientDob')?.value || '';
+                updated.pppoeUser = byId('editFullPppoeUser')?.value.trim() || '';
+                updated.pppoePass = byId('editFullPppoePass')?.value || '';
+                updated.address = byId('editFullClientAddress')?.value || '';
+                updated.ip = byId('editFullClientIp')?.value.trim() || '';
+                updated.mac = byId('editFullClientMac')?.value.trim() || '';
+                updated.package = byId('editFullClientPkg')?.value || '';
+                updated.billingMonth = byId('editFullBillingMonth')?.value || updated.billingMonth || '';
+                const billValue = Number(byId('editFullClientBill')?.value);
+                if (!Number.isFinite(billValue) || billValue < 0) {
+                    alert('মাসিক বিলের পরিমাণ সঠিকভাবে লিখুন।');
+                    return;
+                }
+                updated.bill = billValue;
+                updated.startDate = byId('editFullClientStartDate')?.value || '';
+                updated.endDate = byId('editFullClientEndDate')?.value || '';
+                clients[index] = updated;
+                if (!saveClientsSafely(clients, 'ক্লায়েন্টের পরিবর্তন সংরক্ষণ করা যায়নি। ছবি কমিয়ে আবার চেষ্টা করুন।')) return;
+                // Verify persisted data before closing the form.
+                const saved = JSON.parse(localStorage.getItem(getClientStorageKey()) || '[]');
+                const savedClient = Array.isArray(saved) ? saved.find(c => Number(c.id) === id) : null;
+                if (!savedClient || String(savedClient.name || '') !== updated.name || (Array.isArray(savedClient.photos) ? savedClient.photos.length : (savedClient.photo ? 1 : 0)) !== newPhotos.length) {
+                    alert('ডাটা সংরক্ষণের পর যাচাই করা যায়নি। ফর্ম বন্ধ করা হয়নি; আবার চেষ্টা করুন।');
+                    return;
+                }
+                const preview = byId('editClientPhotoPreview');
+                if (preview) preview.innerHTML = newPhotos.length
+                    ? `<div class="flex items-center gap-2"><span class="relative inline-flex"><img src="${escapeHTML(newPhotos[0])}" alt="Saved client photo preview" class="client-photo-thumb" style="width:56px;height:56px;object-fit:cover;cursor:default"><span class="absolute -top-1 -right-1 rounded-full bg-teal-600 text-white text-[9px] min-w-4 h-4 flex items-center justify-center">${newPhotos.length}</span></span><span class="text-xs font-semibold text-teal-700">${newPhotos.length}টি ছবি সংরক্ষিত</span></div>`
+                    : '<i class="fa-solid fa-camera text-xl"></i>';
+                if (photoInput) photoInput.value = '';
                 toggleModal('editClientModal');
-                scheduleRenderUI();
+                if (typeof scheduleRenderUI === 'function') scheduleRenderUI();
+                alert('ক্লায়েন্টের তথ্য সফলভাবে আপডেট হয়েছে।');
+            } catch (err) {
+                console.error('Client update failed:', err);
+                alert('তথ্য আপডেট করা যায়নি। ' + (err && err.message ? err.message : 'আবার চেষ্টা করুন।'));
             }
         }
 
@@ -8058,7 +8104,12 @@ document.addEventListener('DOMContentLoaded', () => {
         function buildDashboardCollectionReportHTML(){
             const st=dashboardCollectionReportState; const pending=st.type==='pending'; const total=st.rows.reduce((s,r)=>s+(pending?r.due:r.paid),0);
             const rows=st.rows.map(r=>`<tr><td>${escapeHTML(st.type==='monthly'||pending?formatMonthName(r.month):formatDisplayDate(r.date))}</td><td>${escapeHTML(r.name||'—')}<small>${escapeHTML(r.phone||'')}</small></td><td>${escapeHTML(r.method||'—')}</td><td class="money ${pending?'due':'paid'}">৳${(pending?r.due:r.paid).toLocaleString('en-US')}</td></tr>`).join('');
-            return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><title>${escapeHTML(st.title)}</title><style>@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:Arial,'Noto Sans Bengali',sans-serif;color:#172033;background:#eef2f7;padding:12px}.head{background:linear-gradient(120deg,#0f766e,#14b8a6);color:#fff;padding:20px;border-radius:12px}.head h1{margin:0 0 6px;font-size:22px}.sum{margin:12px 0;padding:14px;background:#dff7f3;border:1px solid #99e3d7;border-radius:10px;color:#115e59;font-size:18px;font-weight:bold}table{width:100%;border-collapse:collapse;background:#fff;font-size:12px}th{background:#0f766e;color:#fff;text-align:left}th,td{padding:9px;border:1px solid #cbd5e1}tbody tr:nth-child(even){background:#f1f5f9}.money{text-align:right;font-weight:bold}.paid{color:#047857}.due{color:#be123c}small{display:block;color:#64748b;margin-top:3px}@media print{body{background:#eef2f7!important}.head,th,.sum{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}}</style></head><body><header class="head"><h1>${escapeHTML(st.title)}</h1><div>${escapeHTML(st.subtitle)}</div></header><div class="sum">${pending?'মোট বকেয়া':'মোট সংগ্রহ'}: ৳${total.toLocaleString('en-US')}</div><table><thead><tr><th>তারিখ / মাস</th><th>গ্রাহক</th><th>পেমেন্ট মাধ্যম</th><th style="text-align:right">${pending?'বকেয়া':'সংগ্রহ'}</th></tr></thead><tbody>${rows||'<tr><td colspan="4">কোনো তথ্য নেই</td></tr>'}</tbody></table></body></html>`;
+            return `<!doctype html><html lang="bn"><head><meta charset="utf-8"><title>${escapeHTML(st.title)}</title><style>@page{size:A4 portrait;margin:12mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{font-family:Arial,'Noto Sans Bengali',sans-serif;color:#172033;background:#eef2f7;padding:12px}.head{background:linear-gradient(120deg,#0f766e,#14b8a6);color:#fff;padding:20px;border-radius:12px}.head h1{margin:0 0 6px;font-size:22px}.sum{margin:12px 0;padding:14px;background:#dff7f3;border:1px solid #99e3d7;border-radius:10px;color:#115e59;font-size:18px;font-weight:bold}table{width:100%;border-collapse:collapse;background:#fff;font-size:12px}th{background:#0f766e;color:#fff;text-align:left}th,td{padding:9px;border:1px solid #cbd5e1}tbody tr:nth-child(even){background:#f1f5f9}.money{text-align:right;font-weight:bold}.paid{color:#047857}.due{color:#be123c}small{display:block;color:#64748b;margin-top:3px}@media print{body{background:#eef2f7!important}.head,th,.sum{print-color-adjust:exact!important;-webkit-print-color-adjust:exact!important}}</style>
+<style>
+#editClientPhoto,#clientPhoto{display:block;width:100%;max-width:100%;min-width:0;white-space:normal;font-size:12px;}
+.client-photo-gallery-preview{flex:0 0 auto;max-width:100%;}
+</style>
+</head><body><header class="head"><h1>${escapeHTML(st.title)}</h1><div>${escapeHTML(st.subtitle)}</div></header><div class="sum">${pending?'মোট বকেয়া':'মোট সংগ্রহ'}: ৳${total.toLocaleString('en-US')}</div><table><thead><tr><th>তারিখ / মাস</th><th>গ্রাহক</th><th>পেমেন্ট মাধ্যম</th><th style="text-align:right">${pending?'বকেয়া':'সংগ্রহ'}</th></tr></thead><tbody>${rows||'<tr><td colspan="4">কোনো তথ্য নেই</td></tr>'}</tbody></table></body></html>`;
         }
         async function printDashboardCollectionReport(){await printReportInIframe(buildDashboardCollectionReportHTML())}
         function downloadDashboardCollectionReportCSV(){const st=dashboardCollectionReportState;const pending=st.type==='pending';const data=[['তারিখ/মাস','গ্রাহক','ফোন','পেমেন্ট মাধ্যম',pending?'বকেয়া':'সংগ্রহ'],...st.rows.map(r=>[st.type==='monthly'||pending?formatMonthName(r.month):formatDisplayDate(r.date),r.name,r.phone,r.method,pending?r.due:r.paid])];const csv='\ufeff'+data.map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n');downloadBlobFile(`AHA_${st.type}_collection_${getLocalDateISO()}.csv`,csv,'text/csv;charset=utf-8')}
@@ -8218,6 +8269,28 @@ document.addEventListener('DOMContentLoaded', () => {
   render();
 })();
 </script>
+
+
+<style id="aha-client-photo-responsive-fix">
+/* Fix: client photo uploader must never be squeezed into a narrow grid column. */
+#clientModal, #editClientModal { overflow-y:auto !important; }
+#clientModal > div, #editClientModal > div { min-width:0; max-width:100%; }
+#clientModal .client-photo-gallery-preview, #editClientModal .client-photo-gallery-preview { width:100%; min-width:0; box-sizing:border-box; }
+#clientPhoto, #editClientPhoto { display:block; width:100%; max-width:100%; min-width:0; box-sizing:border-box; font-size:12px !important; }
+#clientModal input[type="file"]::file-selector-button, #editClientModal input[type="file"]::file-selector-button { max-width:100%; margin:0 8px 4px 0; padding:7px 9px; border:1px solid #cbd5e1; border-radius:7px; background:#f1f5f9; color:#334155; font-weight:600; }
+#clientModal .bg-teal-50\/60, #editClientModal .bg-teal-50\/60 { min-width:0; }
+@media (max-width: 640px) {
+  #clientModal, #editClientModal { align-items:flex-start !important; justify-content:center !important; padding:8px !important; }
+  #clientModal > div, #editClientModal > div { width:100% !important; max-width:100% !important; max-height:calc(100dvh - 16px) !important; overflow-y:auto !important; }
+  #clientModal .grid.grid-cols-1.sm\:grid-cols-3, #editClientModal .grid.grid-cols-1.sm\:grid-cols-3 { grid-template-columns:minmax(0,1fr) !important; }
+  #clientModal .sm\:col-span-3, #editClientModal .sm\:col-span-3 { grid-column:1 / -1 !important; }
+  #clientModal .grid.grid-cols-2, #editClientModal .grid.grid-cols-2 { grid-template-columns:minmax(0,1fr) !important; }
+  #clientModal input, #clientModal select, #editClientModal input, #editClientModal select, #clientModal textarea, #editClientModal textarea { max-width:100%; min-width:0; }
+}
+@media (min-width: 641px) {
+  #clientModal > div, #editClientModal > div { max-width:min(96vw, 760px) !important; }
+}
+</style>
 
 </body>
 </html>
