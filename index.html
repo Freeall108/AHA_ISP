@@ -3318,7 +3318,7 @@ body.membership-print-mode #membershipPrintHost{
 
         const AHA_BACKUP_SCHEMA = 'AHA-ISP-BACKUP';
         const AHA_BACKUP_VERSION = 3;
-        const AHA_BACKUP_MAX_BYTES = 4 * 1024 * 1024;
+        const AHA_BACKUP_MAX_BYTES = 16 * 1024 * 1024;
         let __backupRestoreInProgress = false;
 
         // Runtime-only keys are never included in a portable backup.
@@ -5500,13 +5500,14 @@ body.membership-print-mode #membershipPrintHost{
             if (client.billingMonth && !deletedMonths.includes(String(client.billingMonth))
                 && (client.package || Number(client.bill || 0) > 0)) {
                 const packageAmount = Number(client.bill || 0) || 0;
-                const paidAmount = client.status === 'Paid' ? packageAmount : 0;
+                const paidAmount = Math.max(0, Number(client.paidAmount ?? (client.status === 'Paid' ? packageAmount : 0)) || 0);
+                const currentStatus = paidAmount >= packageAmount && packageAmount > 0 ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Unpaid';
                 const currentRecord = {
                     month: client.billingMonth, package: client.package || '', packageAmount, paidAmount,
                     method: client.payMethod || 'Cash', txnId: client.txnId || '',
                     walletNumber: client.walletNumber || client.paymentWalletNumber || '',
                     date: client.paymentDate || '',
-                    status: client.status === 'Paid' ? 'Paid' : paidAmount > 0 ? 'Partial' : 'Unpaid'
+                    status: currentStatus
                 };
                 const idx = history.findIndex(h => String(h.month || '') === String(client.billingMonth));
                 if (idx >= 0) {
@@ -7044,9 +7045,10 @@ body{display:block!important;min-height:0!important;overflow:visible!important}.
             const clients = getSubscribers();
             const selectedMonth = document.getElementById('dashboardMonthSelect').value;
             
-            const monthClients = clients.filter(c => !c.billingMonth || c.billingMonth === selectedMonth);
+            // Client count/status cards remain scoped to the selected billing month.
+            const monthClients = clients.filter(c => !c.billingMonth || String(c.billingMonth) === String(selectedMonth));
             const totalClients = monthClients.length;
-            
+
             let activeCount = 0;
             let inactiveCount = 0;
             let totalRevenue = 0;
@@ -7059,35 +7061,49 @@ body{display:block!important;min-height:0!important;overflow:visible!important}.
             let unpaidCount = 0;
 
             const todayStr = getLocalDateISO();
-            const todayNewConnections = clients.filter(c => String(c.createdAt || c.connectionCreatedAt || '') === todayStr).length;
+            const todayNewConnections = clients.filter(c => String(c.createdAt || c.connectionCreatedAt || '').slice(0, 10) === todayStr).length;
 
-            monthClients.forEach(c => {
+            // Financial dashboard figures are calculated from every client's history,
+            // not only clients whose current billingMonth matches the selector.
+            // Legacy records without h.month fall back to the client's billingMonth.
+            clients.forEach(c => {
                 const validity = calculateRemainingDays(c.endDate);
                 let isActive = false;
-                
                 if (c.autoStatusOverride === 'Active') isActive = true;
                 else if (c.autoStatusOverride === 'Deactive') isActive = false;
-                else {
-                    if (c.status === 'Paid' && validity.category !== 'expired') isActive = true;
+                else if (c.status === 'Paid' && validity.category !== 'expired') isActive = true;
+
+                if (monthClients.includes(c)) {
+                    if (isActive) activeCount++;
+                    else inactiveCount++;
                 }
 
-                if (isActive) activeCount++;
-                else inactiveCount++;
+                const paymentRows = getClientPaymentHistory(c).filter(h =>
+                    String(h.month || c.billingMonth || '') === String(selectedMonth || '')
+                );
+                if (!paymentRows.length) return;
 
-                if (c.status === 'Paid') {
-                    paidCount++;
-                    totalRevenue += Number(c.bill || 0);
-                    if (c.payMethod === 'bKash') bkashTotal += Number(c.bill || 0);
-                    else if (c.payMethod === 'Nagad') nagadTotal += Number(c.bill || 0);
-                    else cashTotal += Number(c.bill || 0);
+                const monthPaid = paymentRows.reduce((sum, h) => sum + Math.max(0, Number(h.paidAmount || 0)), 0);
+                const monthBilled = paymentRows.reduce((sum, h) => sum + Math.max(0, Number(h.packageAmount ?? c.bill ?? 0)), 0);
+                const monthDue = paymentRows.reduce((sum, h) => sum + Math.max(0, (Number(h.packageAmount ?? c.bill ?? 0) || 0) - Math.max(0, Number(h.paidAmount || 0))), 0);
+                if (monthPaid >= monthBilled && monthBilled > 0) paidCount++;
+                else unpaidCount++;
+                totalRevenue += monthPaid;
+                pendingBill += monthDue;
+                paymentRows.forEach(h => {
+                    const amount = Math.max(0, Number(h.paidAmount || 0));
+                    if (h.method === 'bKash') bkashTotal += amount;
+                    else if (h.method === 'Nagad') nagadTotal += amount;
+                    else cashTotal += amount;
+                });
+            });
 
-                    if (c.paymentDate === todayStr) {
-                        todayCollection += Number(c.bill || 0);
-                    }
-                } else {
-                    unpaidCount++;
-                    pendingBill += Number(c.bill || 0);
-                }
+            // Today's cash-in is date-based across every client, independent of the selected billing month.
+            clients.forEach(c => {
+                getClientPaymentHistory(c).forEach(h => {
+                    const amount = Math.max(0, Number(h.paidAmount || 0));
+                    if (amount > 0 && String(h.date || '').slice(0, 10) === todayStr) todayCollection += amount;
+                });
             });
 
             document.getElementById('dbTotalClients').innerText = totalClients;
@@ -7831,12 +7847,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (type === 'daily') {
                 title = 'তারিখভিত্তিক সংগ্রহ বিবরণী';
                 subtitle = selectedMonth ? `নির্বাচিত হিসাবের মাস: ${formatMonthName(selectedMonth)} — পেমেন্টের তারিখ অনুযায়ী` : 'পেমেন্টের তারিখ অনুযায়ী সংগ্রহ';
-                rows = all.filter(x => x.paid > 0 && x.date && (!selectedMonth || x.month === selectedMonth)).sort((a,b)=>b.date.localeCompare(a.date));
-                if (!rows.length) rows = all.filter(x=>x.paid>0&&x.date).sort((a,b)=>b.date.localeCompare(a.date));
+                // Filter by the actual payment date, not the bill's billingMonth.
+                rows = all.filter(x => x.paid > 0 && x.date && (!selectedMonth || x.date.slice(0,7) === selectedMonth)).sort((a,b)=>b.date.localeCompare(a.date));
             } else if (type === 'monthly') {
-                title = 'মাসভিত্তিক মোট সংগ্রহ'; subtitle = 'যে মাসের বিলের বিপরীতে যত টাকা আদায় হয়েছে';
+                title = 'পেমেন্টের তারিখ অনুযায়ী মাসভিত্তিক সংগ্রহ'; subtitle = 'যে মাসে টাকা গ্রহণ করা হয়েছে, সেই মাস অনুযায়ী মোট সংগ্রহ';
                 const groups = new Map();
-                all.filter(x=>x.paid>0).forEach(x=>{ const k=x.month||'তারিখ নেই'; const g=groups.get(k)||{month:k,date:'',name:'মাসের মোট সংগ্রহ',phone:'',method:'সব মাধ্যম',paid:0,due:0}; g.paid+=x.paid; groups.set(k,g); });
+                all.filter(x=>x.paid>0).forEach(x=>{ const k=(x.date && /^\d{4}-\d{2}/.test(x.date)) ? x.date.slice(0,7) : 'তারিখ নেই'; const g=groups.get(k)||{month:k,date:'',name:'মাসের মোট সংগ্রহ',phone:'',method:'সব মাধ্যম',paid:0,due:0}; g.paid+=x.paid; groups.set(k,g); });
                 rows = [...groups.values()].sort((a,b)=>String(b.month).localeCompare(String(a.month)));
             } else {
                 title = 'মাসভিত্তিক বকেয়া বিবরণী'; subtitle = 'প্রতি বিলিং মাসে কত টাকা বাকি রয়েছে';
