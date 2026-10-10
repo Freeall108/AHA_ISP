@@ -4930,14 +4930,32 @@ body.membership-print-mode #membershipPrintHost{
         }
 
         function saveClientsSafely(clients, failureMessage = 'ডাটা সংরক্ষণ করা যায়নি। ব্রাউজারের স্টোরেজ খালি করে বা ব্যাকআপ নিয়ে আবার চেষ্টা করুন।') {
+            const key = getClientStorageKey();
             try {
-                localStorage.setItem(getClientStorageKey(), JSON.stringify(clients));
+                localStorage.setItem(key, JSON.stringify(clients));
                 return true;
             } catch (err) {
                 console.error('Client data save failed:', err);
-                alert(failureMessage + (err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED')
-                    ? '\nব্রাউজারের স্টোরেজ পূর্ণ। ছবি কমিয়ে বা পুরোনো ব্যাকআপ রেখে আবার চেষ্টা করুন।' : ''));
-                return false;
+                // Space-saving retry: photos[] is canonical; do not store the first image twice
+                // in both `photos` and the legacy `photo` field.
+                try {
+                    const compact = clients.map(client => {
+                        const copy = { ...client };
+                        const photos = Array.isArray(copy.photos) ? copy.photos.filter(p => typeof p === 'string' && p.startsWith('data:image/')) : [];
+                        if (photos.length) {
+                            copy.photos = photos;
+                            copy.photo = ''; // getClientPhotos reads photos[] first; avoids duplicate Base64 payload
+                        }
+                        return copy;
+                    });
+                    localStorage.setItem(key, JSON.stringify(compact));
+                    console.warn('Client data saved after removing duplicate photo payloads.');
+                    return true;
+                } catch (retryErr) {
+                    console.error('Compact client save failed:', retryErr);
+                    alert(failureMessage + '\nব্রাউজারের ওয়েব-স্টোরেজ সীমা পূর্ণ। ছবি কমিয়ে/কিছু ছবি মুছে, ব্যাকআপ ডাউনলোড করে আবার চেষ্টা করুন। ফোনের সাধারণ স্টোরেজ খালি করলেই ওয়েবসাইটের LocalStorage বাড়ে না।');
+                    return false;
+                }
             }
         }
 
@@ -5057,14 +5075,14 @@ body.membership-print-mode #membershipPrintHost{
                 reader.onload = () => {
                     const img = new Image();
                     img.onload = () => {
-                        const maxSide = 720;
+                        const maxSide = 480;
                         const scale = Math.min(1, maxSide / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
                         const canvas = document.createElement('canvas');
                         canvas.width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
                         canvas.height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        resolve(canvas.toDataURL('image/jpeg', 0.82));
+                        resolve(canvas.toDataURL('image/jpeg', 0.58));
                     };
                     img.onerror = () => reject(new Error('ছবিটি প্রসেস করা যায়নি।'));
                     img.src = reader.result;
@@ -5145,7 +5163,7 @@ body.membership-print-mode #membershipPrintHost{
                 name: document.getElementById('clientName').value,
                 phone: document.getElementById('clientPhone').value,
                 email: document.getElementById('clientEmail').value,
-                photo: photos[0] || '',
+                photo: '',
                 photos,
                 nid,
                 dob: document.getElementById('clientDob').value,
@@ -5253,7 +5271,7 @@ body.membership-print-mode #membershipPrintHost{
                 updated.phone = phoneField.value.trim();
                 updated.email = byId('editFullClientEmail')?.value.trim() || '';
                 updated.photos = newPhotos;
-                updated.photo = newPhotos[0] || '';
+                updated.photo = '';
                 updated.nid = nid;
                 updated.dob = byId('editFullClientDob')?.value || '';
                 updated.pppoeUser = byId('editFullPppoeUser')?.value.trim() || '';
@@ -5347,7 +5365,7 @@ body.membership-print-mode #membershipPrintHost{
             if (!confirm('এই ছবিটি মুছে ফেলতে চান?')) return;
             photos.splice(activeClientPhotoIndex, 1);
             clients[clientIndex].photos = photos;
-            clients[clientIndex].photo = photos[0] || '';
+            clients[clientIndex].photo = '';
             try {
                 localStorage.setItem(getClientStorageKey(), JSON.stringify(clients));
             } catch (err) {
