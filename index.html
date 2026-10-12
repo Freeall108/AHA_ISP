@@ -1788,6 +1788,17 @@ body.membership-print-mode #membershipPrintHost{
         </div>
     </div>
 
+    <style>
+      .payment-clear-btn { display:inline-flex; align-items:center; justify-content:center; flex:0 0 2.5rem; line-height:1; font-size:1rem; }
+      .payment-method-select.method-cash { background:#dcfce7!important; color:#166534!important; border-color:#86efac!important; }
+      .payment-method-select.method-bkash { background:#fce7f3!important; color:#9d174d!important; border-color:#f9a8d4!important; }
+      .payment-method-select.method-nagad { background:#dbeafe!important; color:#1d4ed8!important; border-color:#93c5fd!important; }
+      .payment-status-select.status-paid { background:#dcfce7!important; color:#166534!important; border-color:#86efac!important; }
+      .payment-status-select.status-partial { background:#fef3c7!important; color:#92400e!important; border-color:#fcd34d!important; }
+      .payment-status-select.status-unpaid { background:#ffe4e6!important; color:#9f1239!important; border-color:#fda4af!important; }
+      @media(max-width:480px){ #paymentModal form { padding:1rem!important; gap:0.8rem!important; } #paymentModal .payment-clear-btn { width:2.25rem; flex-basis:2.25rem; height:2.5rem; border-radius:.8rem; } }
+    </style>
+
     <!-- MODAL: PAYMENT STATUS UPDATE -->
     <div id="paymentModal" class="fixed inset-0 bg-black/70 backdrop-blur-xs hidden flex items-center justify-center p-4 z-50">
         <div class="bg-white dark:bg-[#0D1520] rounded-xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200">
@@ -1812,20 +1823,20 @@ body.membership-print-mode #membershipPrintHost{
                         <label for="payPackageAmount" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">প্যাকেজ মূল্য (৳)</label>
                         <div class="flex items-stretch gap-1.5 min-w-0">
                             <input type="number" id="payPackageAmount" min="0" step="0.01" inputmode="decimal" class="w-full min-w-0 p-2.5 dark-input rounded-md text-xs font-bold text-indigo-600" aria-label="প্যাকেজ মূল্য">
-                            <button type="button" onclick="clearPaymentField('payPackageAmount')" class="shrink-0 w-9 rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 font-bold" title="প্যাকেজ মূল্য মুছুন" aria-label="প্যাকেজ মূল্য মুছুন">✕</button>
+                            <button type="button" onclick="clearPaymentField('payPackageAmount')" class="payment-clear-btn shrink-0 w-10 h-10 rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-pink-100 text-rose-600 shadow-sm hover:shadow-md hover:from-rose-100 hover:to-pink-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-rose-300 dark:border-rose-800 dark:from-rose-950/70 dark:to-pink-950/50 dark:text-rose-300 transition-all font-bold" title="প্যাকেজ মূল্য মুছুন" aria-label="প্যাকেজ মূল্য মুছুন"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                     </div>
                     <div class="min-w-0">
                         <label for="payPaidAmount" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">এইবার কত টাকা পেয়েছেন (৳)</label>
                         <div class="flex items-stretch gap-1.5 min-w-0">
                             <input type="number" id="payPaidAmount" min="0" step="0.01" inputmode="decimal" class="w-full min-w-0 p-2.5 dark-input rounded-md text-xs font-bold text-emerald-600" placeholder="এইবার পাওয়া টাকার পরিমাণ" aria-label="এইবার কত টাকা পেয়েছেন">
-                            <button type="button" onclick="clearPaymentField('payPaidAmount')" class="shrink-0 w-9 rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 font-bold" title="এইবার পাওয়া টাকার পরিমাণ মুছুন" aria-label="এইবার পাওয়া টাকার পরিমাণ মুছুন">✕</button>
+                            <button type="button" onclick="clearPaymentField('payPaidAmount')" class="payment-clear-btn shrink-0 w-10 h-10 rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-pink-100 text-rose-600 shadow-sm hover:shadow-md hover:from-rose-100 hover:to-pink-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-rose-300 dark:border-rose-800 dark:from-rose-950/70 dark:to-pink-950/50 dark:text-rose-300 transition-all font-bold" title="এইবার পাওয়া টাকার পরিমাণ মুছুন" aria-label="এইবার পাওয়া টাকার পরিমাণ মুছুন"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                     </div>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5" data-i18n="lblPayMethod">পেমেন্ট মাধ্যম</label>
-                    <select id="payMethod" onchange="toggleTxnInput()" class="w-full p-2.5 dark-input rounded-md text-xs font-semibold">
+                    <select id="payMethod" onchange="toggleTxnInput()" class="payment-method-select w-full p-2.5 rounded-xl border text-xs font-bold transition-colors">
                         <style>
                             #payMethod option[value="Cash"] { background:#dcfce7; color:#166534; }
                             #payMethod option[value="bKash"] { background:#fce7f3; color:#be185d; }
@@ -1851,12 +1862,12 @@ body.membership-print-mode #membershipPrintHost{
                     <label for="payPaymentDate" class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5" data-i18n="lblPayDate">পেমেন্ট করার তারিখ</label>
                     <div class="flex items-stretch gap-1.5 min-w-0">
                         <input type="date" id="payPaymentDate" class="w-full min-w-0 p-2.5 dark-input rounded-md text-xs font-semibold">
-                        <button type="button" onclick="clearPaymentField('payPaymentDate')" class="shrink-0 w-10 rounded-md border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 font-bold" title="পেমেন্টের তারিখ মুছুন" aria-label="পেমেন্টের তারিখ মুছুন">✕</button>
+                        <button type="button" onclick="clearPaymentField('payPaymentDate')" class="payment-clear-btn shrink-0 w-10 h-10 rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-pink-100 text-rose-600 shadow-sm hover:shadow-md hover:from-rose-100 hover:to-pink-200 active:scale-95 focus:outline-none focus:ring-2 focus:ring-rose-300 dark:border-rose-800 dark:from-rose-950/70 dark:to-pink-950/50 dark:text-rose-300 transition-all font-bold" title="পেমেন্টের তারিখ মুছুন" aria-label="পেমেন্টের তারিখ মুছুন"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5" data-i18n="lblPayStatus">পেমেন্ট স্ট্যাটাস</label>
-                    <select id="payStatus" class="w-full p-2.5 dark-input rounded-md text-xs">
+                    <select id="payStatus" onchange="stylePaymentStatusSelect()" class="payment-status-select w-full p-2.5 rounded-xl border text-xs font-bold transition-colors dark-input">
                         <option value="Paid">Mark as Paid</option>
                         <option value="Partial">Mark as Partial</option>
                         <option value="Unpaid">Mark as Unpaid</option>
@@ -5886,6 +5897,8 @@ body.membership-print-mode #membershipPrintHost{
         }
 
 
+        window.paymentHistoryEditMode = null;
+
         function editClientPaymentHistory(clientId, month) {
             if (typeof isStaffImpersonation === 'function' && isStaffImpersonation()) {
                 alert('Admin Staff Account-এর Payment History Read Only।');
@@ -5895,17 +5908,32 @@ body.membership-print-mode #membershipPrintHost{
             if (!client) { alert('ক্লায়েন্টের তথ্য পাওয়া যায়নি।'); return; }
             const targetMonth = String(month || '');
             if (!targetMonth) { alert('Payment History-এর মাস পাওয়া যায়নি।'); return; }
-
-            const deleted = Array.isArray(client.paymentHistoryDeletedMonths)
-                ? client.paymentHistoryDeletedMonths.filter(m => String(m) !== targetMonth)
-                : [];
-            client.paymentHistoryDeletedMonths = deleted;
-
+            const record = getClientPaymentHistory(client).find(h => String(h.month || '') === targetMonth);
+            if (!record) { alert('এই মাসের Payment History পাওয়া যায়নি।'); return; }
+            client.paymentHistoryDeletedMonths = Array.isArray(client.paymentHistoryDeletedMonths)
+                ? client.paymentHistoryDeletedMonths.filter(m => String(m) !== targetMonth) : [];
+            window.paymentHistoryEditMode = { clientId: Number(clientId), month: targetMonth };
             document.getElementById('payClientId').value = client.id;
             ensurePaymentMonthOptions();
             const monthSelect = document.getElementById('payBillingMonth');
             monthSelect.value = targetMonth;
             loadPaymentMonthRecord();
+            // In history-edit mode, the amount field means the corrected total paid for this month,
+            // not an additional payment to append to the previous total.
+            document.getElementById('payPackageAmount').value = Number(record.packageAmount || 0);
+            document.getElementById('payPaidAmount').value = Number(record.paidAmount || 0);
+            document.getElementById('payMethod').value = record.method || 'Cash';
+            document.getElementById('payTxnId').value = record.txnId || '';
+            const wallet = document.getElementById('payWalletNumber');
+            if (wallet) wallet.value = record.walletNumber || record.paymentWalletNumber || '';
+            document.getElementById('payPaymentDate').value = record.date || '';
+            document.getElementById('payStatus').value = record.status || 'Unpaid';
+            const saveBtn = document.querySelector('#paymentModal button[type="submit"]');
+            if (saveBtn) saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> হিস্টোরি আপডেট করুন';
+            const paidLabel = document.querySelector('label[for="payPaidAmount"]');
+            if (paidLabel) paidLabel.textContent = 'এই মাসে মোট কত টাকা পেয়েছেন (৳)';
+            toggleTxnInput();
+            stylePaymentStatusSelect();
             toggleModal('paymentHistoryModal');
             toggleModal('paymentModal');
         }
@@ -6083,6 +6111,11 @@ html,body{margin:0;padding:0;background:#eef2f7;color:#172033;font-family:"Noto 
         }
 
         function openPaymentModal(id) {
+            window.paymentHistoryEditMode = null;
+            const resetPaySaveBtn = document.querySelector('#paymentModal button[type="submit"]');
+            if (resetPaySaveBtn) resetPaySaveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> পেমেন্ট সেভ করুন';
+            const resetPaidLabel = document.querySelector('label[for="payPaidAmount"]');
+            if (resetPaidLabel) resetPaidLabel.textContent = 'এইবার কত টাকা পেয়েছেন (৳)';
             if (typeof isStaffImpersonation === 'function' && isStaffImpersonation()) { alert('Admin Staff Account-এর Payment তথ্য Read Only।'); return; }
             const c = getSubscribers().find(item => Number(item.id) === Number(id));
             if(c) {
@@ -6102,7 +6135,8 @@ html,body{margin:0;padding:0;background:#eef2f7;color:#172033;font-family:"Noto 
         }
 
         function toggleTxnInput() {
-            const method = document.getElementById('payMethod').value;
+            const methodSelect = document.getElementById('payMethod');
+            const method = methodSelect?.value || 'Cash';
             const isMobileWallet = method === 'bKash' || method === 'Nagad';
             const container = document.getElementById('txnIdContainer');
             const walletContainer = document.getElementById('paymentWalletNumberContainer');
@@ -6112,10 +6146,21 @@ html,body{margin:0;padding:0;background:#eef2f7;color:#172033;font-family:"Noto 
             } else {
                 container?.classList.add('hidden');
                 walletContainer?.classList.add('hidden');
-                // Do not keep a stale wallet number when the method is Cash.
                 const walletInput = document.getElementById('payWalletNumber');
                 if (walletInput) walletInput.value = '';
             }
+            if (methodSelect) {
+                methodSelect.classList.remove('method-cash','method-bkash','method-nagad');
+                methodSelect.classList.add(method === 'bKash' ? 'method-bkash' : method === 'Nagad' ? 'method-nagad' : 'method-cash');
+            }
+            stylePaymentStatusSelect();
+        }
+
+        function stylePaymentStatusSelect() {
+            const select = document.getElementById('payStatus');
+            if (!select) return;
+            select.classList.remove('status-paid','status-partial','status-unpaid');
+            select.classList.add(select.value === 'Paid' ? 'status-paid' : select.value === 'Partial' ? 'status-partial' : 'status-unpaid');
         }
 
         // One-tap clear controls for the payment form.
@@ -6156,48 +6201,57 @@ html,body{margin:0;padding:0;background:#eef2f7;color:#172033;font-family:"Noto 
             const history = getClientPaymentHistory(c);
             const existingIndex = history.findIndex(h => String(h.month) === String(month));
             const existing = existingIndex >= 0 ? history[existingIndex] : null;
+            const editMode = window.paymentHistoryEditMode && Number(window.paymentHistoryEditMode.clientId) === Number(id) && String(window.paymentHistoryEditMode.month) === String(month);
             const alreadyPaid = Math.max(0, Number(existing?.paidAmount || 0));
             const remainingDue = Math.max(0, packageAmount - alreadyPaid);
-            if (paymentAmount > remainingDue + 0.000001) {
+            if (!editMode && paymentAmount > remainingDue + 0.000001) {
                 alert(`এই মাসে বকেয়া আছে ৳${remainingDue.toLocaleString('en-US')}। এর বেশি পেমেন্ট গ্রহণ করা যাবে না।`);
                 return;
             }
-
-            // Migrate the previous single payment into a ledger before appending the new transaction.
-            let transactions = existing ? getPaymentTransactions(existing) : [];
-            const ledgerTotal = transactions.reduce((sum, t) => sum + Math.max(0, Number(t.amount || 0)), 0);
-            if (existing && alreadyPaid > ledgerTotal + 0.000001) {
-                transactions.push({
-                    id: `legacy-migration-${month}-${Date.now()}`,
-                    amount: alreadyPaid - ledgerTotal,
-                    date: existing.date || '',
-                    method: existing.method || 'Cash',
-                    txnId: existing.txnId || '',
-                    walletNumber: existing.walletNumber || existing.paymentWalletNumber || ''
-                });
+            if (editMode && paymentAmount > packageAmount + 0.000001) {
+                alert(`মোট পাওয়া টাকা প্যাকেজ মূল্যের চেয়ে বেশি হতে পারবে না (সর্বোচ্চ ৳${packageAmount.toLocaleString('en-US')})।`);
+                return;
             }
-            const newTransaction = paymentAmount > 0 ? {
-                id: `TX-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                amount: paymentAmount,
-                date: paymentDate,
-                method,
-                txnId,
-                walletNumber: (method === 'bKash' || method === 'Nagad') ? walletNumber : '',
-                paymentWalletNumber: (method === 'bKash' || method === 'Nagad') ? walletNumber : ''
-            } : null;
-            // Do not create a fake transaction for an unpaid month (amount ৳0).
-            if (newTransaction) transactions.push(newTransaction);
-            const cumulativePaid = Math.min(packageAmount, alreadyPaid + paymentAmount);
+
+            let transactions = [];
+            let newTransaction = null;
+            let cumulativePaid = 0;
+            if (editMode) {
+                // Editing a history row replaces its saved values and ledger rather than appending
+                // the corrected total as another payment (which previously left the history unchanged).
+                newTransaction = paymentAmount > 0 ? {
+                    id: `TX-EDIT-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                    amount: paymentAmount, date: paymentDate, method, txnId,
+                    walletNumber: (method === 'bKash' || method === 'Nagad') ? walletNumber : '',
+                    paymentWalletNumber: (method === 'bKash' || method === 'Nagad') ? walletNumber : ''
+                } : null;
+                if (newTransaction) transactions.push(newTransaction);
+                cumulativePaid = paymentAmount;
+            } else {
+                // Migrate legacy aggregate paid value into the ledger before appending new payment.
+                transactions = existing ? getPaymentTransactions(existing) : [];
+                const ledgerTotal = transactions.reduce((sum, t) => sum + Math.max(0, Number(t.amount || 0)), 0);
+                if (existing && alreadyPaid > ledgerTotal + 0.000001) {
+                    transactions.push({ id: `legacy-migration-${month}-${Date.now()}`, amount: alreadyPaid - ledgerTotal,
+                        date: existing.date || '', method: existing.method || 'Cash', txnId: existing.txnId || '',
+                        walletNumber: existing.walletNumber || existing.paymentWalletNumber || '' });
+                }
+                newTransaction = paymentAmount > 0 ? {
+                    id: `TX-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                    amount: paymentAmount, date: paymentDate, method, txnId,
+                    walletNumber: (method === 'bKash' || method === 'Nagad') ? walletNumber : '',
+                    paymentWalletNumber: (method === 'bKash' || method === 'Nagad') ? walletNumber : ''
+                } : null;
+                if (newTransaction) transactions.push(newTransaction);
+                cumulativePaid = Math.min(packageAmount, alreadyPaid + paymentAmount);
+            }
             const record = {
-                month,
-                package: packageName,
-                packageAmount,
-                paidAmount: cumulativePaid,
-                method: newTransaction?.method || existing?.method || method,
-                txnId: newTransaction?.txnId || existing?.txnId || txnId,
-                walletNumber: newTransaction?.walletNumber || existing?.walletNumber || existing?.paymentWalletNumber || '',
-                paymentWalletNumber: newTransaction?.walletNumber || existing?.paymentWalletNumber || existing?.walletNumber || '',
-                date: newTransaction?.date || existing?.date || '',
+                month, package: packageName, packageAmount, paidAmount: cumulativePaid,
+                method: newTransaction?.method || (editMode ? method : existing?.method || method),
+                txnId: newTransaction?.txnId || (editMode ? txnId : existing?.txnId || txnId),
+                walletNumber: newTransaction?.walletNumber || (editMode ? walletNumber : existing?.walletNumber || existing?.paymentWalletNumber || ''),
+                paymentWalletNumber: newTransaction?.walletNumber || (editMode ? walletNumber : existing?.paymentWalletNumber || existing?.walletNumber || ''),
+                date: newTransaction?.date || (editMode ? '' : existing?.date || ''),
                 transactions,
                 status: cumulativePaid >= packageAmount ? 'Paid' : cumulativePaid > 0 ? 'Partial' : 'Unpaid'
             };
@@ -6221,9 +6275,14 @@ html,body{margin:0;padding:0;background:#eef2f7;color:#172033;font-family:"Noto 
                 c.paymentWalletNumber = record.walletNumber || '';
                 c.status = record.status;
                 c.paidAmount = cumulativePaid;
-                c.paymentDate = paymentDate;
+                c.paymentDate = record.date || '';
             }
             if (!saveClientsSafely(clients, 'পেমেন্ট সংরক্ষণ করা যায়নি। আপনার ডাটা অপরিবর্তিত রাখা হয়েছে।')) return;
+            window.paymentHistoryEditMode = null;
+            const saveBtn = document.querySelector('#paymentModal button[type="submit"]');
+            if (saveBtn) saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk me-1"></i> পেমেন্ট সেভ করুন';
+            const paidLabel = document.querySelector('label[for="payPaidAmount"]');
+            if (paidLabel) paidLabel.textContent = 'এইবার কত টাকা পেয়েছেন (৳)';
             toggleModal('paymentModal');
             scheduleRenderUI();
         }
