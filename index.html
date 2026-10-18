@@ -2618,7 +2618,7 @@ body.membership-print-mode #membershipPrintHost{
                     // Keep the Staff account's existing phone/username/password/role untouched.
                 };
 
-                saveMembers(members);
+                if (!saveMembers(members)) return;
             } else {
                 const updatedProfile = {
                     ...getAdminProfile(),
@@ -2649,7 +2649,7 @@ body.membership-print-mode #membershipPrintHost{
                         whatsapp,
                         whatsappVerified: true
                     };
-                    saveMembers(members);
+                    if (!saveMembers(members)) return;
                 }
             }
 
@@ -2689,11 +2689,10 @@ body.membership-print-mode #membershipPrintHost{
             isBackupAccount: true
         });
 
-        function ensurePermanentAdmin(members) {
+        function ensurePermanentAdmin(members, persist = true) {
             const list = Array.isArray(members) ? members.filter(m => m && typeof m === 'object') : [];
             const existing = list.find(m => String(m.id) === '1' || String(m.username || '').toLowerCase() === 'admin');
-            // Preserve the Admin profile/photo details if they already exist, but NEVER allow
-            // the master credentials, role, status or id to be changed.
+            // Preserve Admin profile/photo fields, but keep master credentials, role, status and id fixed.
             const master = {
                 ...PERMANENT_ADMIN,
                 ...(existing || {}),
@@ -2707,7 +2706,18 @@ body.membership-print-mode #membershipPrintHost{
             };
             const others = list.filter(m => String(m.id) !== '1' && String(m.username || '').toLowerCase() !== 'admin');
             const finalMembers = [master, ...others];
-            localStorage.setItem('speedybill_members', JSON.stringify(finalMembers));
+            // Reads should not rewrite the whole LocalStorage value unless it actually changed.
+            // This avoids repeated quota failures while rendering the app.
+            if (persist) {
+                try {
+                    const serialized = JSON.stringify(finalMembers);
+                    if (localStorage.getItem('speedybill_members') !== serialized) {
+                        localStorage.setItem('speedybill_members', serialized);
+                    }
+                } catch (err) {
+                    console.warn('Permanent Admin membership normalization could not be persisted:', err);
+                }
+            }
             return finalMembers;
         }
 
@@ -2729,8 +2739,7 @@ body.membership-print-mode #membershipPrintHost{
             return ensurePermanentAdmin([]);
         }
 
-        // Centralized membership saver: always preserves the permanent Admin and
-        // guarantees every newly-created Staff/Manager/Admin account is persisted.
+        // Centralized, quota-safe membership saver. Returns the saved array on success, null on failure.
         function saveMembers(members) {
             const safe = Array.isArray(members) ? members.filter(m => m && typeof m === 'object') : [];
             const normalized = safe.map(m => ({
@@ -2740,7 +2749,18 @@ body.membership-print-mode #membershipPrintHost{
                 nid: String(m.nid || '').replace(/\D/g, ''),
                 dob: m.dob || ''
             }));
-            return ensurePermanentAdmin(normalized);
+            const finalMembers = ensurePermanentAdmin(normalized, false);
+            try {
+                localStorage.setItem('speedybill_members', JSON.stringify(finalMembers));
+                return finalMembers;
+            } catch (err) {
+                console.error('Membership save failed:', err);
+                const quota = err && (err.name === 'QuotaExceededError' || err.code === 22 || err.code === 1014);
+                alert(quota
+                    ? 'স্টাফ/ম্যানেজার তথ্য সংরক্ষণ করা যায়নি: ব্রাউজারের স্টোরেজ পূর্ণ। আগে সম্পূর্ণ Backup ডাউনলোড করুন, তারপর অপ্রয়োজনীয় বড় ছবি কমিয়ে আবার চেষ্টা করুন। কোনো সদস্যের তথ্য মুছে ফেলা হয়নি।'
+                    : 'স্টাফ/ম্যানেজার তথ্য সংরক্ষণ করা যায়নি। ডাটা অপরিবর্তিত রাখা হয়েছে; আবার চেষ্টা করুন।');
+                return null;
+            }
         }
 
         let memberRoleFilter = 'all';
@@ -2772,11 +2792,35 @@ body.membership-print-mode #membershipPrintHost{
             const file = input && input.files ? input.files[0] : null;
             if (!file) return;
             if (!file.type.startsWith('image/')) { alert('শুধু ছবি ফাইল নির্বাচন করুন।'); input.value = ''; return; }
+            if (file.size > 12 * 1024 * 1024) { alert('ছবিটি ১২ MB-এর বেশি। ছোট ছবি নির্বাচন করুন।'); input.value = ''; return; }
             const reader = new FileReader();
+            reader.onerror = () => { alert('ছবি পড়া যায়নি। আবার চেষ্টা করুন।'); input.value = ''; };
             reader.onload = e => {
-                memberPhotoData = e.target.result;
-                const preview = document.getElementById('memberPhotoPreview');
-                if (preview) preview.innerHTML = `<img src="${memberPhotoData}" alt="Member preview" class="w-full h-full object-cover">`;
+                const source = e.target.result;
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const max = 320;
+                        const ratio = Math.min(1, max / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.max(1, Math.round((img.naturalWidth || img.width) * ratio));
+                        canvas.height = Math.max(1, Math.round((img.naturalHeight || img.height) * ratio));
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) throw new Error('Canvas unavailable');
+                        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        memberPhotoData = canvas.toDataURL('image/jpeg', 0.72);
+                        const preview = document.getElementById('memberPhotoPreview');
+                        if (preview) preview.innerHTML = `<img src="${memberPhotoData}" alt="Member preview" class="w-full h-full object-cover">`;
+                    } catch (err) {
+                        // Fallback to the original image only if browser compression is unavailable.
+                        memberPhotoData = source;
+                        const preview = document.getElementById('memberPhotoPreview');
+                        if (preview) preview.innerHTML = `<img src="${memberPhotoData}" alt="Member preview" class="w-full h-full object-cover">`;
+                    }
+                };
+                img.onerror = () => { alert('এই ছবিটি প্রসেস করা যায়নি। অন্য ছবি নির্বাচন করুন।'); input.value = ''; };
+                img.src = source;
             };
             reader.readAsDataURL(file);
         }
@@ -2896,7 +2940,8 @@ body.membership-print-mode #membershipPrintHost{
                 members.push({ id: Date.now(), ...payload });
             }
 
-            saveMembers(members);
+            const savedMembers = saveMembers(members);
+            if (!savedMembers) return;
             toggleModal('memberModal');
             renderMembershipTable();
             renderDashboard();
@@ -2916,7 +2961,7 @@ body.membership-print-mode #membershipPrintHost{
                 return;
             }
             if (!confirm('এই মেম্বার অ্যাকাউন্টটি ডিলিট করতে চান?')) return;
-            localStorage.setItem('speedybill_members', JSON.stringify(members.filter(m => m.id !== Number(id))));
+            if (!saveMembers(members.filter(m => m.id !== Number(id)))) return;
             renderMembershipTable();
             renderDashboard();
         }
@@ -2932,7 +2977,7 @@ body.membership-print-mode #membershipPrintHost{
             const member = members.find(m => m.id === Number(id));
             if (!member) return;
             member.status = member.status === 'Active' ? 'Inactive' : 'Active';
-            localStorage.setItem('speedybill_members', JSON.stringify(members));
+            if (!saveMembers(members)) return;
             renderMembershipTable();
         }
 
@@ -7809,7 +7854,7 @@ body{display:block!important;min-height:0!important;overflow:visible!important}.
                 if(value.length<6){recoveryMessage('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।');return;}
                 members[idx].password=value;
             }
-            localStorage.setItem('speedybill_members',JSON.stringify(members));
+            if (!saveMembers(members)) { recoveryMessage('অ্যাকাউন্টের তথ্য সংরক্ষণ করা যায়নি। Backup নিয়ে আবার চেষ্টা করুন।'); return; }
             const m=members[idx];
             recoveryMessage((type==='username'?'ইউজারনেম':'পাসওয়ার্ড')+' সফলভাবে রিসেট হয়েছে। '+(type==='username'?'নতুন ইউজারনেম: '+m.username:'নতুন পাসওয়ার্ড সেট করা হয়েছে।'),true);
             setTimeout(closeAccountRecoveryModal,1200);
@@ -7994,7 +8039,7 @@ body{display:block!important;min-height:0!important;overflow:visible!important}.
             // used by Membership & Staff Management. This makes it immediately
             // available to the Admin account after the next render/login.
             const savedMembers = saveMembers([...members, member]);
-            if (!savedMembers.some(m => String(m.id) === String(member.id))) {
+            if (!Array.isArray(savedMembers) || !savedMembers.some(m => String(m.id) === String(member.id))) {
                 showAuthMessage('অ্যাকাউন্ট সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।');
                 return;
             }
