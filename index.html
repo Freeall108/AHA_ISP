@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="app-version" content="1.29">
+    <meta name="app-version" content="1.30">
     <title>ISP Billing & Management System — Updated</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -418,7 +418,7 @@ body.membership-print-mode #membershipPrintHost{
                     </div>
                     <div>
                         <h1 class="text-sm font-bold text-slate-800 dark:text-white tracking-tight" id="displayBrandName">SpeedyBill <span class="text-teal-500 dark:text-teal-400">Hub</span></h1>
-                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold flex items-center gap-1.5 flex-wrap">ISP Billing System <span id="appVersionBadge" class="inline-flex items-center rounded-full border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-teal-600 dark:text-teal-400" title="Software version">v1.29</span></p>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold flex items-center gap-1.5 flex-wrap">ISP Billing System <span id="appVersionBadge" class="inline-flex items-center rounded-full border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-teal-600 dark:text-teal-400" title="Software version">v1.30</span></p>
                     </div>
                 </div>
                 <!-- Close Button for Mobile Sidebar -->
@@ -915,15 +915,12 @@ body.membership-print-mode #membershipPrintHost{
 
                 <div class="bg-white dark:bg-[#0B111A] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-4">
                     <div class="flex flex-col xl:flex-row xl:items-center gap-3">
-                        <div class="flex flex-wrap items-center gap-1.5">
-                            <button type="button" onclick="setClientSearchField('all')" id="client-search-all" class="client-search-field px-3 py-1.5 rounded-lg text-[11px] font-bold bg-teal-500 text-slate-950">সব</button>
-                            <button type="button" onclick="setClientSearchField('serial')" id="client-search-serial" class="client-search-field px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ক্রমিক</button>
-                            <button type="button" onclick="setClientSearchField('name')" id="client-search-name" class="client-search-field px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">নাম</button>
-                            <button type="button" onclick="setClientSearchField('phone')" id="client-search-phone" class="client-search-field px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ফোন</button>
-                            <button type="button" onclick="setClientSearchField('address')" id="client-search-address" class="client-search-field px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ঠিকানা</button>
-                            <button type="button" onclick="setClientSearchField('pppoe')" id="client-search-pppoe" class="client-search-field px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">PPPoE</button>
-                            <button type="button" onclick="setClientSearchField('ip')" id="client-search-ip" class="client-search-field px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">IP</button>
-                            <button type="button" onclick="setClientSearchField('package')" id="client-search-package" class="client-search-field px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">প্যাকেজ</button>
+                        <div class="relative min-w-[145px] sm:min-w-[170px]">
+                            <i class="fa-solid fa-sliders absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 text-xs pointer-events-none"></i>
+                            <select id="client-search-select" aria-label="কোন তথ্য দিয়ে খুঁজবেন" onchange="setClientSearchField(this.value)" class="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30">
+                                <option value="all">সব তথ্য</option><option value="serial">ক্রমিক</option><option value="name">নাম</option><option value="phone">ফোন</option><option value="address">ঠিকানা</option><option value="pppoe">PPPoE</option><option value="ip">IP</option><option value="package">প্যাকেজ</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
                         </div>
                         <div class="relative flex-1 min-w-[220px]">
                             <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 text-xs"></i>
@@ -1026,14 +1023,11 @@ body.membership-print-mode #membershipPrintHost{
                 <!-- ব্যাক বাটন ও সার্চ বার -->
                 <div class="flex justify-between items-center bg-white dark:bg-[#0B111A] p-4 rounded-xl border border-slate-200 dark:border-slate-800/80 gap-4 shadow-sm">
                     <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2 flex-1 max-w-none">
-                        <div class="flex flex-wrap gap-1.5">
-                            <button type="button" onclick="setInvoiceSearchField('all')" id="invoice-search-all" class="invoice-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-teal-500 text-slate-950">সব</button>
-                            <button type="button" onclick="setInvoiceSearchField('serial')" id="invoice-search-serial" class="invoice-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ক্রমিক নং</button>
-                            <button type="button" onclick="setInvoiceSearchField('invoice')" id="invoice-search-invoice" class="invoice-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ইনভয়েস</button>
-                            <button type="button" onclick="setInvoiceSearchField('name')" id="invoice-search-name" class="invoice-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">নাম</button>
-                            <button type="button" onclick="setInvoiceSearchField('phone')" id="invoice-search-phone" class="invoice-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ফোন</button>
-                            <button type="button" onclick="setInvoiceSearchField('method')" id="invoice-search-method" class="invoice-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">পেমেন্ট</button>
-                            <button type="button" onclick="setInvoiceSearchField('status')" id="invoice-search-status" class="invoice-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">স্ট্যাটাস</button>
+                        <div class="relative min-w-[135px] sm:min-w-[155px]">
+                            <i class="fa-solid fa-sliders absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 text-xs pointer-events-none"></i>
+                            <select id="invoice-search-select" aria-label="ইনভয়েস কোন তথ্য দিয়ে খুঁজবেন" onchange="setInvoiceSearchField(this.value)" class="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30">
+                                <option value="all">সব তথ্য</option><option value="serial">ক্রমিক নং</option><option value="invoice">ইনভয়েস</option><option value="name">নাম</option><option value="phone">ফোন</option><option value="method">পেমেন্ট</option><option value="status">স্ট্যাটাস</option>
+                            </select><i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
                         </div>
                         <!-- ব্যাক বাটন -->
                         <button onclick="switchTab('dashboard')" class="px-3 py-2 rounded-lg text-xs font-semibold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition flex items-center gap-1.5 shrink-0">
@@ -1098,14 +1092,11 @@ body.membership-print-mode #membershipPrintHost{
                         <h3 class="text-sm md:text-base font-bold text-slate-900 dark:text-white">মেম্বারশিপ ও স্টাফ অ্যাকাউন্ট ম্যানেজমেন্ট</h3>
                     </div>
                     <div class="flex flex-col md:flex-row gap-2 w-full sm:w-auto">
-                        <div class="flex flex-wrap gap-1.5">
-                            <button type="button" onclick="setMemberSearchField('all')" id="member-search-all" class="member-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 text-white">সব</button>
-                            <button type="button" onclick="setMemberSearchField('serial')" id="member-search-serial" class="member-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ক্রমিক নং</button>
-                            <button type="button" onclick="setMemberSearchField('name')" id="member-search-name" class="member-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">নাম</button>
-                            <button type="button" onclick="setMemberSearchField('phone')" id="member-search-phone" class="member-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ফোন</button>
-                            <button type="button" onclick="setMemberSearchField('email')" id="member-search-email" class="member-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ইমেইল</button>
-                            <button type="button" onclick="setMemberSearchField('username')" id="member-search-username" class="member-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ইউজারনেম</button>
-                            <button type="button" onclick="setMemberSearchField('role')" id="member-search-role" class="member-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">রোল</button>
+                        <div class="relative min-w-[145px] sm:min-w-[170px]">
+                            <i class="fa-solid fa-sliders absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 text-xs pointer-events-none"></i>
+                            <select id="member-search-select" aria-label="মেম্বার কোন তথ্য দিয়ে খুঁজবেন" onchange="setMemberSearchField(this.value)" class="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/30">
+                                <option value="all">সব তথ্য</option><option value="serial">ক্রমিক নং</option><option value="name">নাম</option><option value="phone">ফোন</option><option value="email">ইমেইল</option><option value="username">ইউজারনেম</option><option value="role">রোল</option>
+                            </select><i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
                         </div>
                         <div class="relative min-w-[190px]">
                             <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-indigo-500 text-xs"></i>
@@ -1255,11 +1246,11 @@ body.membership-print-mode #membershipPrintHost{
                     </div>
                 </form>
                 <div class="mb-2 flex flex-col sm:flex-row gap-2">
-                    <div class="flex flex-wrap gap-1.5">
-                        <button type="button" onclick="setPackageSearchField('all')" id="package-search-all" class="package-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-teal-500 text-slate-950">সব</button>
-                        <button type="button" onclick="setPackageSearchField('serial')" id="package-search-serial" class="package-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">ক্রমিক নং</button>
-                        <button type="button" onclick="setPackageSearchField('name')" id="package-search-name" class="package-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">প্যাকেজ নাম</button>
-                        <button type="button" onclick="setPackageSearchField('price')" id="package-search-price" class="package-search-field px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">মূল্য</button>
+                    <div class="relative min-w-[145px] sm:min-w-[170px]">
+                        <i class="fa-solid fa-sliders absolute left-3 top-1/2 -translate-y-1/2 text-teal-500 text-xs pointer-events-none"></i>
+                        <select id="package-search-select" aria-label="প্যাকেজ কোন তথ্য দিয়ে খুঁজবেন" onchange="setPackageSearchField(this.value)" class="w-full appearance-none pl-9 pr-8 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/30">
+                            <option value="all">সব তথ্য</option><option value="serial">ক্রমিক নং</option><option value="name">প্যাকেজ নাম</option><option value="price">মূল্য</option>
+                        </select><i class="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] pointer-events-none"></i>
                     </div>
                     <div class="relative flex-1">
                         <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-teal-500 text-xs"></i>
@@ -2129,6 +2120,8 @@ body.membership-print-mode #membershipPrintHost{
 
         function normalizeSearch(v) { return String(v ?? '').toLowerCase().trim(); }
         function setSearchButton(prefix, field, bg='bg-teal-500', fg='text-slate-950') {
+            const fieldSelect = document.getElementById(`${prefix}-search-select`);
+            if (fieldSelect) fieldSelect.value = field;
             document.querySelectorAll(`.${prefix}-search-field`).forEach(btn => {
                 btn.classList.remove('bg-teal-500','bg-indigo-600','text-slate-950','text-white','font-bold');
                 btn.classList.add('bg-slate-100','dark:bg-slate-800','text-slate-600','dark:text-slate-300','font-semibold');
@@ -2139,7 +2132,7 @@ body.membership-print-mode #membershipPrintHost{
                 active.classList.add(bg, fg, 'font-bold');
             }
         }
-        function setClientSearchField(field) { clientSearchField = field; setSearchButton('client', field); filterClientsEngine(); }
+        function setClientSearchField(field) { clientSearchField = field; const sel=document.getElementById('client-search-select'); if(sel) sel.value=field; setSearchButton('client', field); filterClientsEngine(); }
         function setInvoiceSearchField(field) {
             invoiceSearchField = field;
             if (field !== 'status') window.invoicePaymentFilter = 'all';
