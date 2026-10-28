@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="app-version" content="1.30">
+    <meta name="app-version" content="1.31">
     <title>ISP Billing & Management System — Updated</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -418,7 +418,7 @@ body.membership-print-mode #membershipPrintHost{
                     </div>
                     <div>
                         <h1 class="text-sm font-bold text-slate-800 dark:text-white tracking-tight" id="displayBrandName">SpeedyBill <span class="text-teal-500 dark:text-teal-400">Hub</span></h1>
-                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold flex items-center gap-1.5 flex-wrap">ISP Billing System <span id="appVersionBadge" class="inline-flex items-center rounded-full border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-teal-600 dark:text-teal-400" title="Software version">v1.30</span></p>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold flex items-center gap-1.5 flex-wrap">ISP Billing System <span id="appVersionBadge" class="inline-flex items-center rounded-full border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-teal-600 dark:text-teal-400" title="Software version">v1.31</span></p>
                     </div>
                 </div>
                 <!-- Close Button for Mobile Sidebar -->
@@ -1433,6 +1433,14 @@ body.membership-print-mode #membershipPrintHost{
                 <div>
                     <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5" data-i18n="lblAddress">ঠিকানা</label>
                     <input type="text" id="clientAddress" placeholder="House, Road, Area, City" class="w-full p-2.5 dark-input rounded-md text-xs">
+                    <div class="mt-2 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
+                        <select id="savedAddressSelect" onchange="useSavedClientAddress(this.value)" class="w-full min-w-0 p-2 dark-input rounded-md text-xs">
+                            <option value="">সংরক্ষিত ঠিকানা থেকে নির্বাচন করুন</option>
+                        </select>
+                        <button type="button" onclick="saveClientAddressPreset()" class="px-3 py-2 rounded-md bg-teal-500/10 border border-teal-500/30 text-teal-600 dark:text-teal-300 text-xs font-bold"><i class="fa-solid fa-bookmark mr-1"></i> ঠিকানা সেভ</button>
+                        <button type="button" onclick="deleteClientAddressPreset()" class="px-3 py-2 rounded-md bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs font-bold"><i class="fa-solid fa-trash mr-1"></i> মুছুন</button>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-1">একবার ঠিকানা লিখে “ঠিকানা সেভ” করুন। পরে তালিকা থেকে ক্লিক করলেই ঠিকানা বসে যাবে।</p>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -4626,12 +4634,64 @@ body.membership-print-mode #membershipPrintHost{
             if (v) document.getElementById('editFullClientEndDate').value = v;
         }
 
+        // Saved address presets for quickly reusing common customer locations.
+        const CLIENT_ADDRESS_PRESETS_KEY = 'speedyBillHub_savedAddressPresets_v1';
+        function getClientAddressPresets() {
+            try {
+                const value = JSON.parse(localStorage.getItem(CLIENT_ADDRESS_PRESETS_KEY) || '[]');
+                return Array.isArray(value) ? value.filter(x => typeof x === 'string' && x.trim()) : [];
+            } catch (_) { return []; }
+        }
+        function renderClientAddressPresets(selectedValue = '') {
+            const select = document.getElementById('savedAddressSelect');
+            if (!select) return;
+            const presets = getClientAddressPresets();
+            select.innerHTML = '<option value="">সংরক্ষিত ঠিকানা থেকে নির্বাচন করুন</option>' +
+                presets.map((address, index) => `<option value="${index}">${escapeHTML(address)}</option>`).join('');
+            if (selectedValue !== '') select.value = String(selectedValue);
+        }
+        function useSavedClientAddress(index) {
+            if (index === '' || index == null) return;
+            const address = getClientAddressPresets()[Number(index)];
+            if (address) document.getElementById('clientAddress').value = address;
+        }
+        function saveClientAddressPreset() {
+            const input = document.getElementById('clientAddress');
+            const address = (input?.value || '').trim();
+            if (!address) { alert('আগে ঠিকানা লিখুন, তারপর সেভ করুন।'); input?.focus(); return; }
+            const presets = getClientAddressPresets();
+            const existing = presets.findIndex(x => x.toLocaleLowerCase() === address.toLocaleLowerCase());
+            if (existing >= 0) {
+                renderClientAddressPresets(String(existing));
+                alert('এই ঠিকানাটি আগে থেকেই সেভ করা আছে।');
+                return;
+            }
+            presets.push(address);
+            try {
+                localStorage.setItem(CLIENT_ADDRESS_PRESETS_KEY, JSON.stringify(presets));
+                renderClientAddressPresets(String(presets.length - 1));
+                alert('ঠিকানা সফলভাবে সেভ হয়েছে। এখন তালিকা থেকে নির্বাচন করতে পারবেন।');
+            } catch (_) { alert('ঠিকানা সেভ করা যায়নি। ব্রাউজারের স্টোরেজ সেটিংস পরীক্ষা করুন।'); }
+        }
+        function deleteClientAddressPreset() {
+            const select = document.getElementById('savedAddressSelect');
+            if (!select || select.value === '') { alert('মুছে ফেলার জন্য তালিকা থেকে একটি ঠিকানা নির্বাচন করুন।'); return; }
+            const presets = getClientAddressPresets();
+            const index = Number(select.value);
+            if (!presets[index]) return;
+            if (!confirm(`এই সংরক্ষিত ঠিকানাটি মুছে ফেলবেন?\n${presets[index]}`)) return;
+            presets.splice(index, 1);
+            try { localStorage.setItem(CLIENT_ADDRESS_PRESETS_KEY, JSON.stringify(presets)); renderClientAddressPresets(); }
+            catch (_) { alert('ঠিকানা মুছে ফেলা যায়নি।'); }
+        }
+
         function openAddSubscriberModal() {
             if (typeof isStaffImpersonation === 'function' && isStaffImpersonation()) { alert('Admin Staff Account-এর তথ্য শুধুমাত্র দেখা যাবে; নতুন Client যোগ করা যাবে না।'); return; }
             const cycle = getBillingCycleDates();
             document.getElementById('clientStartDate').value = cycle.startDateISO;
             document.getElementById('clientEndDate').value = cycle.endDateISO;
             document.getElementById('clientBillingMonth').value = cycle.currentMonthStr;
+            renderClientAddressPresets();
             updateBillAmount();
             toggleModal('clientModal');
         }
