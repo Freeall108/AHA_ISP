@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="app-version" content="1.31">
-    <title>ISP Billing & Management System — Updated</title>
+    <meta name="app-version" content="1.32">
+    <title>ISP Billing & Management System — v1.32 Backup & Restore Update</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -418,7 +418,7 @@ body.membership-print-mode #membershipPrintHost{
                     </div>
                     <div>
                         <h1 class="text-sm font-bold text-slate-800 dark:text-white tracking-tight" id="displayBrandName">SpeedyBill <span class="text-teal-500 dark:text-teal-400">Hub</span></h1>
-                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold flex items-center gap-1.5 flex-wrap">ISP Billing System <span id="appVersionBadge" class="inline-flex items-center rounded-full border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-teal-600 dark:text-teal-400" title="Software version">v1.31</span></p>
+                        <p class="text-[10px] text-slate-500 uppercase tracking-wider font-semibold flex items-center gap-1.5 flex-wrap">ISP Billing System <span id="appVersionBadge" class="inline-flex items-center rounded-full border border-teal-500/30 bg-teal-500/10 px-1.5 py-0.5 text-[9px] font-bold normal-case tracking-normal text-teal-600 dark:text-teal-400" title="Software version">v1.32</span></p>
                     </div>
                 </div>
                 <!-- Close Button for Mobile Sidebar -->
@@ -3396,7 +3396,7 @@ body.membership-print-mode #membershipPrintHost{
            ========================================================= */
 
         const AHA_BACKUP_SCHEMA = 'AHA-ISP-BACKUP';
-        const AHA_BACKUP_VERSION = 3;
+        const AHA_BACKUP_VERSION = 4;
         const AHA_BACKUP_MAX_BYTES = 16 * 1024 * 1024;
         let __backupRestoreInProgress = false;
 
@@ -3546,8 +3546,14 @@ body.membership-print-mode #membershipPrintHost{
             try { return new Blob([JSON.stringify(storage)]).size; } catch (_) { return 0; }
         }
 
+        function stableBackupStringify(value) {
+            if (value === null || typeof value !== 'object') return JSON.stringify(value);
+            if (Array.isArray(value)) return '[' + value.map(stableBackupStringify).join(',') + ']';
+            return '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + stableBackupStringify(value[k])).join(',') + '}';
+        }
+
         async function sha256Hex(value) {
-            if (!window.crypto?.subtle) return 'sha256-unavailable';
+            if (!window.crypto?.subtle) throw new Error('এই ব্রাউজারে SHA-256 যাচাই সমর্থিত নয়। HTTPS/আধুনিক Chrome-এ খুলে আবার চেষ্টা করুন।');
             const data = new TextEncoder().encode(value);
             const hash = await crypto.subtle.digest('SHA-256', data);
             return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -3560,7 +3566,7 @@ body.membership-print-mode #membershipPrintHost{
                 throw new Error(`Backup data ${(bytes / 1024 / 1024).toFixed(2)} MB — LocalStorage নিরাপদ সীমার চেয়ে বেশি।`);
             }
             const sortedKeys = Object.keys(storage).sort();
-            const canonical = JSON.stringify(storage, sortedKeys);
+            const canonical = stableBackupStringify(storage);
             const checksum = await sha256Hex(canonical);
             return {
                 schema: AHA_BACKUP_SCHEMA,
@@ -4085,6 +4091,7 @@ body.membership-print-mode #membershipPrintHost{
             const version = Number(data.version);
             if (!Number.isFinite(version) || version < 1 || version > AHA_BACKUP_VERSION) throw new Error('Backup version unsupported.');
             validateBackupStorage(data.storage);
+            if (Object.keys(data.storage).length === 0) throw new Error('Backup-এ কোনো app data নেই। ফাঁকা Backup Restore করা যাবে না।');
             const bytes = getStorageBytes(data.storage);
             if (bytes > AHA_BACKUP_MAX_BYTES) throw new Error(`Backup file data ${(bytes / 1024 / 1024).toFixed(2)} MB — নিরাপদ সীমার চেয়ে বেশি।`);
             return true;
@@ -4092,8 +4099,7 @@ body.membership-print-mode #membershipPrintHost{
 
         async function verifyBackupChecksum(data) {
             if (!data.checksum || !data.checksumAlgorithm) return true;
-            const keys = Object.keys(data.storage).sort();
-            const canonical = JSON.stringify(data.storage, keys);
+            const canonical = stableBackupStringify(data.storage);
             const actual = await sha256Hex(canonical);
             return actual === data.checksum;
         }
@@ -4159,6 +4165,8 @@ body.membership-print-mode #membershipPrintHost{
             if (!file) return;
 
             try {
+                if (file.size > AHA_BACKUP_MAX_BYTES * 1.5) throw new Error('Backup ফাইল অত্যধিক বড়। সঠিক JSON Backup নির্বাচন করুন।');
+                if (!confirm(`সম্পূর্ণ Restore করলে বর্তমান App Data Backup ফাইলের ডাটা দিয়ে প্রতিস্থাপিত হবে। Restore-এর আগে Safety Snapshot তৈরি হবে।\n\nফাইল: ${file.name}\nআকার: ${Math.ceil(file.size / 1024)} KB\n\nচালিয়ে যাবেন?`)) { event.target.value = ''; return; }
                 setBackupMessage('Backup যাচাই করা হচ্ছে...', 'info');
                 const text = await file.text();
                 const parsedData = JSON.parse(text);
